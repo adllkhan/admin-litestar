@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import func, or_, select
@@ -53,6 +54,50 @@ def _search_clause(spec: ModelSpec, term: str) -> Any:
     )
 
 
+def _coerce_cursor(order_column: Any, cursor: str) -> Any:
+    """Coerce a keyset cursor string to the order column's Python type.
+
+    Args:
+        order_column: The SQLAlchemy column to read the Python type from.
+        cursor: A string cursor value, typically from a URL query parameter.
+
+    Returns:
+        The cursor coerced to the column's Python type, or None if coercion
+        fails (treating a malformed cursor as absent rather than raising).
+    """
+    # Try to read the Python type, falling back to the string if the type
+    # does not expose it (JSON, ARRAY, and similar custom types).
+    try:
+        python_type = order_column.type.python_type
+    except NotImplementedError:
+        # Type does not describe itself; pass through unchanged.
+        return cursor
+
+    # String columns do not need coercion.
+    if python_type is str:
+        return cursor
+
+    # For datetime types, use fromisoformat (the correct constructor for
+    # a value round-tripped through a URL).
+    if python_type is datetime.datetime:
+        try:
+            return datetime.datetime.fromisoformat(cursor)
+        except (ValueError, TypeError):
+            return None
+
+    if python_type is datetime.date:
+        try:
+            return datetime.date.fromisoformat(cursor)
+        except (ValueError, TypeError):
+            return None
+
+    # For other types, call the type constructor.
+    try:
+        return python_type(cursor)
+    except (ValueError, TypeError):
+        return None
+
+
 def list_statement(
     spec: ModelSpec,
     *,
@@ -89,12 +134,7 @@ def list_statement(
         if name in spec.filters:
             statement = statement.where(getattr(spec.model, name) == value)
     if after is not None:
-        # Coerce cursor to the order column's Python type.
-        try:
-            coerced_after = order_column.type.python_type(after)
-        except (ValueError, TypeError):
-            # Malformed cursor treated as absent.
-            coerced_after = None
+        coerced_after = _coerce_cursor(order_column, after)
         if coerced_after is not None:
             statement = statement.where(order_column < coerced_after)
     return statement

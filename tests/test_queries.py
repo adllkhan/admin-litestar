@@ -6,7 +6,12 @@ import pytest
 from sqlalchemy import Select
 from sqlalchemy.dialects import postgresql
 
-from litestar_admin.queries import count_statement, detail_statement, list_statement, primary_key
+from litestar_admin.queries import (
+    count_statement,
+    detail_statement,
+    list_statement,
+    primary_key,
+)
 
 from .models import CompositeKeyModel
 from .test_spec import SECRET, WIDGET
@@ -123,3 +128,20 @@ def test_malformed_keyset_cursor_is_ignored() -> None:
     """An unparseable cursor is silently ignored."""
     sql = _sql(list_statement(WIDGET, after="abc"))
     assert "id <" not in sql
+
+
+def test_datetime_ordered_spec_with_iso_cursor() -> None:
+    """DateTime cursors are parsed with fromisoformat and bound as datetime."""
+    spec = replace(WIDGET, order_by="created_at")
+    statement = list_statement(spec, after="2026-07-29T09:14:00+00:00")
+    compiled = statement.compile()
+    # Check that a datetime parameter is bound, not a string.
+    import datetime
+    assert any(isinstance(v, datetime.datetime) for v in compiled.params.values())
+
+
+def test_datetime_ordered_spec_with_nonsense_cursor() -> None:
+    """A malformed datetime cursor is silently ignored."""
+    spec = replace(WIDGET, order_by="created_at")
+    sql = _sql(list_statement(spec, after="not-a-timestamp"))
+    assert "created_at <" not in sql
