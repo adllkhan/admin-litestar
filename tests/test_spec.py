@@ -98,3 +98,36 @@ def test_order_by_must_be_a_real_column() -> None:
             capabilities=frozenset({LIST}),
             order_by="nonexistent",
         )
+
+
+def test_searchable_may_not_include_excluded_columns() -> None:
+    """A searchable column cannot be excluded."""
+    with pytest.raises(ValueError, match="excluded"):
+        ModelSpec(
+            model=Secret,
+            slug="bad",
+            label="Bad",
+            group="G",
+            list_columns=("id",),
+            detail_columns=("id",),
+            excluded_columns=("token",),
+            searchable=("token",),
+            capabilities=frozenset({LIST}),
+            order_by="id",
+        )
+
+
+def test_filters_must_be_real_columns() -> None:
+    """A filter must be a real column."""
+    with pytest.raises(ValueError, match="unknown"):
+        ModelSpec(
+            model=Widget,
+            slug="bad",
+            label="Bad",
+            group="G",
+            list_columns=("id",),
+            detail_columns=("id",),
+            capabilities=frozenset({LIST}),
+            order_by="id",
+            filters=("nonexistent",),
+        )

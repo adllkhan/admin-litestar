@@ -72,6 +72,23 @@ class ModelSpec:
         unknown = declared - known
         if unknown:
             raise ValueError(f"{self.slug}: unknown columns: {sorted(unknown)}")
+        # Validate searchable, exact_searchable, and filters.
+        for attr in ("searchable", "exact_searchable", "filters"):
+            names = getattr(self, attr)
+            if not names:
+                continue
+            # Check they are real columns.
+            unknown = set(names) - known
+            if unknown:
+                raise ValueError(
+                    f"{self.slug}: unknown columns in {attr}: {sorted(unknown)}"
+                )
+            # Check they are not excluded.
+            excluded = set(names) & set(self.excluded_columns)
+            if excluded:
+                raise ValueError(
+                    f"{self.slug}: excluded columns in {attr}: {sorted(excluded)}"
+                )
 
     def renders(self, capability: str) -> bool:
         """True when this spec offers the given capability."""

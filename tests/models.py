@@ -36,3 +36,13 @@ class Secret(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     token: Mapped[str] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class CompositeKeyModel(Base):
+    """A model with a composite primary key."""
+
+    __tablename__ = "composite_key_model"
+
+    id1: Mapped[int] = mapped_column(Integer, primary_key=True)
+    id2: Mapped[int] = mapped_column(Integer, primary_key=True)
+    data: Mapped[str] = mapped_column(String(50))

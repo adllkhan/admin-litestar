@@ -2,11 +2,13 @@
 
 from dataclasses import replace
 
+import pytest
 from sqlalchemy import Select
 from sqlalchemy.dialects import postgresql
 
-from litestar_admin.queries import count_statement, detail_statement, list_statement
+from litestar_admin.queries import count_statement, detail_statement, list_statement, primary_key
 
+from .models import CompositeKeyModel
 from .test_spec import SECRET, WIDGET
 
 
@@ -30,9 +32,12 @@ def test_excluded_columns_appear_in_no_statement() -> None:
     for sql in (
         _sql(list_statement(SECRET)),
         _sql(detail_statement(SECRET, 1)),
-        _sql(count_statement(SECRET)),
     ):
         assert "token" not in sql
+    # Count statement must not reference any entity columns.
+    count_sql = _sql(count_statement(SECRET))
+    assert "count(" in count_sql.lower()
+    assert "secret." not in count_sql
 
 
 def test_list_statement_orders_and_limits() -> None:
@@ -82,6 +87,39 @@ def test_filters_are_restricted_to_declared_columns() -> None:
     assert "name =" not in sql
 
 
+def test_exact_search_wins_over_fuzzy() -> None:
+    """When both are declared, exact search takes precedence."""
+    spec = replace(
+        WIDGET,
+        searchable=("name",),
+        exact_searchable=("digest",),
+        search_transform=lambda x: f"xx{x}",
+    )
+    sql = _sql(list_statement(spec, search="12345"))
+    assert "digest" in sql
+    assert "ILIKE" not in sql.upper()
+
+
 def test_count_statement_is_a_count() -> None:
     """Counting does not select entity columns."""
     assert "count(" in _sql(count_statement(WIDGET)).lower()
+
+
+def test_primary_key_rejects_composite_keys() -> None:
+    """Composite primary keys are not supported."""
+    with pytest.raises(ValueError, match="composite"):
+        primary_key(CompositeKeyModel)
+
+
+def test_keyset_cursor_coerces_to_column_type() -> None:
+    """Integer cursors are bound as integers, not strings."""
+    statement = list_statement(WIDGET, after="500")
+    compiled = statement.compile()
+    # Check that the parameter bound is an integer (500), not a string.
+    assert any(v == 500 for v in compiled.params.values())
+
+
+def test_malformed_keyset_cursor_is_ignored() -> None:
+    """An unparseable cursor is silently ignored."""
+    sql = _sql(list_statement(WIDGET, after="abc"))
+    assert "id <" not in sql

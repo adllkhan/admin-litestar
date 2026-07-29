@@ -16,8 +16,17 @@ if TYPE_CHECKING:
 
 
 def primary_key(model: type) -> Any:
-    """Return the single primary-key column of a model."""
-    return next(iter(model.__table__.primary_key.columns))
+    """Return the single primary-key column of a model.
+
+    Raises:
+        ValueError: If the model has a composite primary key.
+    """
+    pk_columns = list(model.__table__.primary_key.columns)
+    if len(pk_columns) != 1:
+        raise ValueError(
+            f"{model.__name__} has a composite primary key; single keys only"
+        )
+    return pk_columns[0]
 
 
 def _attributes(model: type, names: tuple[str, ...]) -> list[Any]:
@@ -80,7 +89,14 @@ def list_statement(
         if name in spec.filters:
             statement = statement.where(getattr(spec.model, name) == value)
     if after is not None:
-        statement = statement.where(order_column < after)
+        # Coerce cursor to the order column's Python type.
+        try:
+            coerced_after = order_column.type.python_type(after)
+        except (ValueError, TypeError):
+            # Malformed cursor treated as absent.
+            coerced_after = None
+        if coerced_after is not None:
+            statement = statement.where(order_column < coerced_after)
     return statement
 
 
