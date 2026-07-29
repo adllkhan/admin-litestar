@@ -38,3 +38,28 @@ def test_malformed_values_rejected() -> None:
     assert verify_password("x", "scrypt$notanumber$8$1$aaaa$bbbb") is False
     assert verify_password("x", "scrypt$16384$8$1") is False
     assert verify_password("x", "scrypt$16384$8$1$!!!$!!!") is False
+
+
+def test_invalid_scrypt_parameters_rejected() -> None:
+    """Semantically invalid scrypt parameters return False, never raise."""
+    # Valid 16-byte salt and 32-byte digest in base64; only scrypt params vary.
+    salt_b64 = "AAAAAAAAAAAAAAAAAAAAAA=="
+    digest_b64 = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+    # n not a power of 2
+    assert (
+        verify_password("x", f"scrypt$3$8$1${salt_b64}${digest_b64}") is False
+    )
+    # n = 0
+    assert (
+        verify_password("x", f"scrypt$0$8$1${salt_b64}${digest_b64}") is False
+    )
+    # r = 0
+    assert (
+        verify_password("x", f"scrypt$16384$0$1${salt_b64}${digest_b64}")
+        is False
+    )
+    # p = 0
+    assert (
+        verify_password("x", f"scrypt$16384$8$0${salt_b64}${digest_b64}")
+        is False
+    )

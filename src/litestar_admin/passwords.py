@@ -61,8 +61,16 @@ def verify_password(raw: str, stored: str | None) -> bool:
         n, r, p = int(parts[1]), int(parts[2]), int(parts[3])
         salt = b64decode(parts[4], validate=True)
         expected = b64decode(parts[5], validate=True)
-    except (ValueError, TypeError, BinasciiError):
+        if not salt or not expected:
+            return False
+        return hmac.compare_digest(
+            _derive(raw, salt, n, r, p), expected
+        )
+    except (
+        ValueError,
+        TypeError,
+        BinasciiError,
+        MemoryError,
+        OverflowError,
+    ):
         return False
-    if not salt or not expected:
-        return False
-    return hmac.compare_digest(_derive(raw, salt, n, r, p), expected)
