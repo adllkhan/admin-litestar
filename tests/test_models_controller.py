@@ -162,6 +162,18 @@ def _build_dual_app(
     return app, session
 
 
+def test_list_page_renders_the_projected_row() -> None:
+    """The index route renders a row through the real list/table templates."""
+    app, _ = _build_dual_app()
+    with TestClient(app=app) as client:
+        _logged_in(client)
+        response = client.get("/admin/m/dual")
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/html")
+    assert "Widget A" in response.text
+    assert "Duals" in response.text
+
+
 def test_export_route_wins_over_the_detail_route_for_the_literal_segment() -> None:
     """``/export`` must resolve to the export handler, not detail with pk='export'.
 
