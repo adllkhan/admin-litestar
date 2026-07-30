@@ -1,0 +1,13 @@
+{% extends "base_bare.html" %}
+{% block title %}login{% endblock %}
+{% block content %}
+<form method="post" action="{{ admin_path }}/login" class="form">
+  <div style="font-weight:700;font-size:14px">admin</div>
+  {% if error %}<div class="chip chip--danger">{{ error }}</div>{% endif %}
+  <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+  <input name="username" placeholder="username" autocomplete="username" required>
+  <input name="password" type="password" placeholder="password"
+         autocomplete="current-password" required>
+  <button class="btn" type="submit">Log in</button>
+</form>
+{% endblock %}

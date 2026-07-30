@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}{{ spec.label }}{% endblock %}
+{% block content %}
+<div class="bar">
+  <strong>{{ spec.label }}</strong>
+  <form method="get" style="display:flex;gap:5px;margin-left:auto">
+    {% if spec.searchable or spec.exact_searchable %}
+    <input name="search" value="{{ search or '' }}" placeholder="search">
+    {% endif %}
+    {% for name in spec.filters %}
+    <input name="{{ name }}" value="{{ filters.get(name, '') }}" placeholder="{{ name }}">
+    {% endfor %}
+    <button class="btn" type="submit">Filter</button>
+  </form>
+  {% if spec.renders("export") %}
+  <a class="btn" href="{{ page_url }}/export">CSV</a>
+  {% endif %}
+</div>
+{% if spec.exact_searchable %}
+<div class="label" style="padding:6px 12px 0">
+  {{ spec.exact_searchable | join(", ") }} match in full only
+</div>
+{% endif %}
+<div style="padding:12px">{% include "_table.html" %}</div>
+{% endblock %}

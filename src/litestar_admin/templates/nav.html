@@ -1,0 +1,14 @@
+<nav class="side">
+  <div class="brand">admin</div>
+  {% for group in groups %}
+    <div class="label" style="padding:10px 6px 3px">{{ group }}</div>
+    {% for spec in registry.in_group(group) %}
+      <a href="{{ url_for_spec(spec) }}">{{ spec.label }}</a>
+    {% endfor %}
+  {% endfor %}
+  <div class="label" style="padding:12px 6px 3px">Session</div>
+  <form method="post" action="{{ admin_path }}/logout">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <button class="btn" type="submit">Log out</button>
+  </form>
+</nav>
