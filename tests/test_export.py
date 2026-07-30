@@ -1,5 +1,8 @@
 """CSV serialisation."""
 
+import csv
+import io
+
 from litestar_admin.export import csv_rows
 
 from .test_spec import WIDGET
@@ -25,4 +28,16 @@ def test_newlines_in_values_are_quoted() -> None:
 
 def test_missing_keys_render_as_empty_fields() -> None:
     """A row lacking a column yields an empty field, not a KeyError."""
-    assert list(csv_rows(WIDGET, [{"id": 1}]))[1].startswith("1,,,")
+    lines = list(csv_rows(WIDGET, [{"id": 1}]))
+    reader = csv.reader(io.StringIO(lines[1]))
+    fields = next(reader)
+    assert fields == ["1", "", "", ""]
+
+
+def test_hidden_columns_never_appear_in_export() -> None:
+    """A hidden column in the row dict does not reach the output."""
+    rows = [{"id": 1, "name": "w", "kind": "k", "created_at": "t", "_blob_data": b"SECRET"}]
+    lines = list(csv_rows(WIDGET, rows))
+    output = "".join(lines)
+    assert "_blob_data" not in output
+    assert "SECRET" not in output

@@ -25,6 +25,7 @@ CELL_MAX_LENGTH = 48
 EMPTY_CELL = "—"
 TRUE_CELL = "yes"
 FALSE_CELL = "no"
+BYTES_CELL = "<{size} bytes>"
 HTMX_HEADER = "HX-Request"
 
 ACTION_LOGIN = "login"

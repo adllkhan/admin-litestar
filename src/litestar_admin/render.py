@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from .constants import (
+    BYTES_CELL,
     CELL_MAX_LENGTH,
     EMPTY_CELL,
     FALSE_CELL,
@@ -15,8 +16,6 @@ from .constants import (
 if TYPE_CHECKING:
     from litestar import Request
 
-BYTES_PLACEHOLDER = "<{size} bytes>"
-
 
 def render_value(value: object) -> str:
     """Format a column value for display in a table cell or detail row."""
@@ -25,7 +24,7 @@ def render_value(value: object) -> str:
     if isinstance(value, bool):
         return TRUE_CELL if value else FALSE_CELL
     if isinstance(value, (bytes, bytearray, memoryview)):
-        return BYTES_PLACEHOLDER.format(size=len(bytes(value)))
+        return BYTES_CELL.format(size=len(bytes(value)))
     text = str(value)
     if len(text) > CELL_MAX_LENGTH:
         return f"{text[:CELL_MAX_LENGTH]}…"
