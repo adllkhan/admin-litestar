@@ -57,7 +57,7 @@ def require_actor(
     connection: ASGIConnection, _handler: BaseRouteHandler
 ) -> None:
     """Litestar guard: reject requests without a logged-in admin session."""
-    if not actor_of(connection):
+    if actor_of(connection) is None:
         raise NotAuthorizedException()
 
 
@@ -84,7 +84,7 @@ class Revalidator:
     async def __call__(self, request: Any) -> None:
         """Clear the session and reject when the actor no longer qualifies."""
         actor_id = actor_of(request)
-        if not actor_id:
+        if actor_id is None:
             return
         cache = self._cache_provider(request)
         key = REVALIDATE_KEY.format(actor_id=actor_id)

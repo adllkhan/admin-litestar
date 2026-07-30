@@ -1,11 +1,16 @@
 """The package must not depend on any host application."""
 
+import re
 from pathlib import Path
 
 import litestar_admin
 
-FORBIDDEN = ("pgo_auth", "core.", "modules.", "infrastructure.", "app.")
+FORBIDDEN = ("pgo_auth", "core", "modules", "infrastructure", "app")
 SOURCE_ROOT = Path(litestar_admin.__file__).resolve().parent
+
+_IMPORT_RE = re.compile(
+    r"^(?:import|from)\s+(" + "|".join(FORBIDDEN) + r")(?:\.|\s|$)"
+)
 
 
 def _sources() -> list[Path]:
@@ -24,11 +29,52 @@ def test_no_host_application_imports() -> None:
     for path in _sources():
         for number, line in enumerate(path.read_text().splitlines(), start=1):
             stripped = line.strip()
-            if not stripped.startswith(("import ", "from ")):
-                continue
-            if any(token in stripped for token in FORBIDDEN):
+            if _IMPORT_RE.match(stripped):
                 offenders.append(f"{path.name}:{number}: {stripped}")
+            if "import_module(" in stripped:
+                if any(pkg in stripped for pkg in FORBIDDEN):
+                    offenders.append(f"{path.name}:{number}: {stripped}")
     assert not offenders, "host imports found:\n" + "\n".join(offenders)
+
+
+def test_boundary_catches_bare_package_imports() -> None:
+    """The regex catches 'import core', 'from core import X', etc."""
+    test_cases = [
+        ("import core", True),
+        ("from core import Something", True),
+        ("import modules", True),
+        ("from modules import X", True),
+        ("import app", True),
+        ("from app import Y", True),
+        ("import infrastructure", True),
+        ("from infrastructure import Z", True),
+    ]
+    for line, should_match in test_cases:
+        assert bool(_IMPORT_RE.match(line)) == should_match, f"Failed on: {line}"
+
+
+def test_boundary_catches_submodule_imports() -> None:
+    """The regex catches 'from core.models import X', etc."""
+    test_cases = [
+        ("from core.models import Something", True),
+        ("import core.models", True),
+        ("from modules.calls import X", True),
+        ("import app.main", True),
+    ]
+    for line, should_match in test_cases:
+        assert bool(_IMPORT_RE.match(line)) == should_match, f"Failed on: {line}"
+
+
+def test_boundary_does_not_false_positive() -> None:
+    """The regex does not catch similar but different names."""
+    test_cases = [
+        ("import coreutils", False),
+        ("from apples import X", False),
+        ("import infrastructure_code", False),
+        ("from app_config import Y", False),
+    ]
+    for line, should_match in test_cases:
+        assert bool(_IMPORT_RE.match(line)) == should_match, f"Failed on: {line}"
 
 
 def test_declared_dependencies_stay_minimal() -> None:

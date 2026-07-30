@@ -132,6 +132,23 @@ async def test_revalidator_ignores_anonymous_requests() -> None:
     assert backend.calls == 0
 
 
+def test_guard_allows_actor_id_zero() -> None:
+    """A legitimate actor id of 0 is not treated as absent."""
+    connection = _Connection({SESSION_ACTOR_KEY: 0})
+    require_actor(connection, None)
+    assert actor_of(connection) == 0
+
+
+async def test_revalidator_consults_backend_for_actor_id_zero() -> None:
+    """An actor id of 0 triggers revalidation, not early return."""
+    cache = _Cache()
+    backend = _Backend(valid=True)
+    request = _Connection({SESSION_ACTOR_KEY: 0})
+    revalidate = Revalidator(backend, lambda: _NullSession(), lambda _r: cache)
+    await revalidate(request)
+    assert backend.calls == 1
+
+
 class _NullSession:
     """Async context manager yielding a placeholder database session."""
 
