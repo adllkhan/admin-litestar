@@ -1,6 +1,6 @@
 """Templates render from plain dictionaries, with no app, session or database."""
 
-from litestar.contrib.jinja import JinjaTemplateEngine
+from litestar.plugins.jinja import JinjaTemplateEngine
 
 from litestar_admin.render import render_value
 from litestar_admin.templates import TEMPLATES

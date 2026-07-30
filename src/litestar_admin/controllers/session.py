@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Annotated, Any
 
 from litestar import Controller, Request, get, post
+from litestar.di import NamedDependency
 from litestar.enums import RequestEncodingType
 from litestar.params import Body
 from litestar.response import Redirect, Template
@@ -39,11 +40,11 @@ class SessionController(Controller):
         self,
         request: Request,
         data: Form,
-        admin_auth: AuthBackend,
-        admin_audit: AuditSink,
-        admin_cache: CacheBackend,
-        admin_session: Any,
-        admin_path: str,
+        admin_auth: NamedDependency[AuthBackend],
+        admin_audit: NamedDependency[AuditSink],
+        admin_cache: NamedDependency[CacheBackend],
+        admin_session: NamedDependency[Any],
+        admin_path: NamedDependency[str],
     ) -> Redirect | Template:
         """Validate credentials, open a session, and audit the outcome."""
         username = str(data.get("username", ""))
@@ -68,7 +69,9 @@ class SessionController(Controller):
         return Redirect(f"{admin_path}/")
 
     @post("/logout", status_code=HTTP_303_SEE_OTHER)
-    async def logout(self, request: Request, admin_path: str) -> Redirect:
+    async def logout(
+        self, request: Request, admin_path: NamedDependency[str]
+    ) -> Redirect:
         """Clear the admin session."""
         request.session.clear()
         return Redirect(f"{admin_path}/login")

@@ -8,9 +8,9 @@ from typing import TYPE_CHECKING, Any
 
 from litestar import Router
 from litestar.config.csrf import CSRFConfig
-from litestar.contrib.jinja import JinjaTemplateEngine
 from litestar.di import Provide
 from litestar.middleware.session.server_side import ServerSideSessionConfig
+from litestar.plugins.jinja import JinjaTemplateEngine
 from litestar.static_files import create_static_files_router
 from litestar.template.config import TemplateConfig
 
