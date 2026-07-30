@@ -16,7 +16,7 @@ from litestar.template.config import TemplateConfig
 
 from .auth import Revalidator, require_actor
 from .constants import DEFAULT_PATH, DEFAULT_STATIC_PATH
-from .controllers import SessionController
+from .controllers import ModelController, SessionController
 from .protocols import CacheBackend
 from .render import render_value
 from .spec import Registry
@@ -133,7 +133,7 @@ class Admin:
 
     def router(self) -> Router:
         """Build the admin router: generic controllers plus host pages."""
-        handlers: list[Any] = [SessionController]
+        handlers: list[Any] = [SessionController, ModelController]
         for page in self.pages:
             handlers.extend(page.handlers)
         return Router(
