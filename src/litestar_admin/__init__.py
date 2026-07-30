@@ -1,7 +1,9 @@
 """Server-rendered admin for Litestar + SQLAlchemy applications."""
 
+from .admin import Admin, AdminConfig
 from .auth import Revalidator, actor_of, require_actor
 from .export import csv_rows
+from .pages import CustomPage
 from .passwords import hash_password, verify_password
 from .protocols import AuditSink, AuthBackend, CacheBackend
 from .queries import count_statement, detail_statement, list_statement
@@ -9,9 +11,12 @@ from .render import is_htmx, project, render_value
 from .spec import ModelSpec, Registry
 
 __all__ = [
+    "Admin",
+    "AdminConfig",
     "AuditSink",
     "AuthBackend",
     "CacheBackend",
+    "CustomPage",
     "ModelSpec",
     "Registry",
     "Revalidator",

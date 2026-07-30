@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 from litestar.exceptions import NotAuthorizedException
 
 from .constants import (
+    EXCLUDE_FROM_AUTH_KEY,
     LOGIN_LOCK_TTL,
     LOGIN_MAX_ATTEMPTS,
     REVALIDATE_TTL,
@@ -54,9 +55,17 @@ def actor_of(connection: ASGIConnection) -> Any:
 
 
 def require_actor(
-    connection: ASGIConnection, _handler: BaseRouteHandler
+    connection: ASGIConnection, _handler: BaseRouteHandler | None
 ) -> None:
-    """Litestar guard: reject requests without a logged-in admin session."""
+    """Litestar guard: reject requests without a logged-in admin session.
+
+    A handler opted out with ``exclude_from_auth=True`` (the same opt key
+    Litestar's own auth middlewares use) is exempt — this is how the login
+    form and its submission stay reachable by anonymous callers even though
+    the router that hosts them carries this guard for every other route.
+    """
+    if _handler is not None and _handler.opt.get(EXCLUDE_FROM_AUTH_KEY):
+        return
     if actor_of(connection) is None:
         raise NotAuthorizedException()
 

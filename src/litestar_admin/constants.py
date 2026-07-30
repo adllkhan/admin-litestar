@@ -4,6 +4,7 @@ DEFAULT_PATH = "/admin"
 DEFAULT_STATIC_PATH = "/admin-static"
 
 SESSION_ACTOR_KEY = "admin_actor_id"
+EXCLUDE_FROM_AUTH_KEY = "exclude_from_auth"
 
 HASH_PREFIX = "scrypt"
 HASH_SEPARATOR = "$"
