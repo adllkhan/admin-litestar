@@ -2,22 +2,57 @@
 
 ## One-time setup
 
-### PyPI trusted publishing
+### Trusted publishing
 
 Prefer OIDC over a long-lived API token: no secret is stored anywhere, and a leaked token
 cannot be replayed because there isn't one.
 
-On PyPI, under the project's *Publishing* settings, add a **pending publisher**:
+Because the project does not exist on either index yet, both are configured as a **pending
+publisher** — which is how you claim a name and authorise a publisher in one step, before a
+first upload exists.
 
-| Field | Value |
-|---|---|
-| Owner | `adllkhan` |
-| Repository | `admin-litestar` |
-| Workflow | `release.yml` |
-| Environment | `pypi` |
+Do this **twice**, once on each index:
 
-Then create a GitHub environment named `pypi` on the repository. Requiring a reviewer on
-that environment means no release reaches PyPI without a human approving it.
+- TestPyPI → <https://test.pypi.org/manage/account/publishing/>
+- PyPI → <https://pypi.org/manage/account/publishing/>
+
+| Field | TestPyPI | PyPI |
+|---|---|---|
+| PyPI Project Name | `admin-litestar` | `admin-litestar` |
+| Owner | `adllkhan` | `adllkhan` |
+| Repository name | `admin-litestar` | `admin-litestar` |
+| Workflow name | `release.yml` | `release.yml` |
+| Environment name | `testpypi` | `pypi` |
+
+The GitHub environments `testpypi` and `pypi` already exist on the repository. Add a
+required reviewer to `pypi` — a tag push otherwise publishes with no further confirmation,
+and a published version cannot be withdrawn.
+
+### Rehearse on TestPyPI before the first tag
+
+The workflow accepts a manual run so the whole path — build, wheel checks, clean-install
+check, and the OIDC handshake itself — can be exercised without burning a version number:
+
+```bash
+gh workflow run release.yml -R adllkhan/admin-litestar -f target=testpypi
+gh run watch -R adllkhan/admin-litestar
+```
+
+Then confirm the artifact is actually installable from the index, not merely uploaded:
+
+```bash
+uv venv /tmp/from-testpypi
+VIRTUAL_ENV=/tmp/from-testpypi uv pip install \
+  --index-url https://test.pypi.org/simple/ \
+  --extra-index-url https://pypi.org/simple/ admin-litestar
+/tmp/from-testpypi/bin/python -c "import admin_litestar as al; print(al.__version__)"
+```
+
+The extra index is required because TestPyPI does not mirror real dependencies, so
+`litestar` and `sqlalchemy` have to resolve from PyPI.
+
+TestPyPI shares PyPI's rule that a version cannot be re-uploaded. If a rehearsal needs
+repeating, bump to a local or dev suffix — `0.1.0.dev1` — rather than trying to overwrite.
 
 ## Every release
 
