@@ -1,8 +1,21 @@
 name: release
 
+# A tag publishes to PyPI. A manual run publishes wherever you choose, defaulting to
+# TestPyPI — which is what makes it possible to rehearse the whole thing, including the
+# trusted-publishing handshake, before a version number is burned. A PyPI version can
+# never be re-uploaded, so that rehearsal is the only safety net there is.
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Index to publish to
+        type: choice
+        default: testpypi
+        options:
+          - testpypi
+          - pypi
 
 # No long-lived token: PyPI trusted publishing exchanges this workflow's OIDC identity
 # for a short-lived upload credential. Nothing to store, nothing to leak.
@@ -55,16 +68,52 @@ jobs:
           sys.exit(f"wheel missing: {missing}" if missing else f"{wheel}: ok")
           PY
 
+      # Testing the source tree does not test the wheel. Paths that resolve from a
+      # checkout can fail from site-packages, which is exactly the risk for a package
+      # whose templates and stylesheet are data rather than code.
+      - name: Install the wheel somewhere clean and import it
+        run: |
+          uv venv /tmp/relcheck
+          VIRTUAL_ENV=/tmp/relcheck uv pip install dist/*.whl
+          /tmp/relcheck/bin/python -c "
+          import admin_litestar as al
+          from admin_litestar.static import STATIC
+          from admin_litestar.templates import TEMPLATES
+          assert (STATIC / 'admin.css').exists(), 'stylesheet missing once installed'
+          assert (TEMPLATES / 'base.html').exists(), 'templates missing once installed'
+          print(f'{al.__version__}: {len(al.__all__)} exports, assets resolve')
+          "
+
       - uses: actions/upload-artifact@v7
         with:
           name: dist
           path: dist/
 
-  publish:
+  publish-testpypi:
     needs: build
+    if: github.event_name == 'workflow_dispatch' && inputs.target == 'testpypi'
     runs-on: ubuntu-latest
-    # Put a required reviewer on this environment so no release reaches PyPI
-    # without a human approving it.
+    environment: testpypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist/
+
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+
+  publish-pypi:
+    needs: build
+    if: >-
+      github.event_name == 'push'
+      || (github.event_name == 'workflow_dispatch' && inputs.target == 'pypi')
+    runs-on: ubuntu-latest
+    # Add a required reviewer to this environment so no release reaches PyPI without a
+    # human approving it. The version cannot be taken back afterwards.
     environment: pypi
     permissions:
       id-token: write
