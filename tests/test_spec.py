@@ -2,8 +2,8 @@
 
 import pytest
 
-from admin_litestar import ModelSpec, Registry
-from admin_litestar.constants import DETAIL, LIST
+from admin_litestar import CAPABILITIES, DELETE, DETAIL, EXPORT, LIST, ModelSpec
+from admin_litestar.spec import Registry
 
 from .models import Secret, Widget
 
@@ -189,3 +189,34 @@ def test_excluded_columns_must_be_real_columns() -> None:
             capabilities=frozenset({LIST}),
             order_by="id",
         )
+
+
+def test_unknown_capability_is_rejected() -> None:
+    """A typo must fail loudly, not yield a model whose routes silently vanish."""
+    with pytest.raises(ValueError, match="unknown capabilities"):
+        ModelSpec(
+            model=Widget,
+            slug="typo",
+            label="Typo",
+            group="G",
+            list_columns=("id",),
+            detail_columns=("id",),
+            capabilities=frozenset({"lst"}),
+            order_by="id",
+        )
+
+
+def test_valid_capabilities_are_accepted() -> None:
+    """Every name in CAPABILITIES is constructible."""
+    spec = ModelSpec(
+        model=Widget,
+        slug="all-caps",
+        label="All",
+        group="G",
+        list_columns=("id",),
+        detail_columns=("id",),
+        capabilities=CAPABILITIES,
+        order_by="id",
+    )
+    assert spec.renders(LIST)
+    assert spec.renders(EXPORT)

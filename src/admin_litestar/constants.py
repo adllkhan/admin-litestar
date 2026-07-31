@@ -39,3 +39,9 @@ LIST = "list"
 DETAIL = "detail"
 DELETE = "delete"
 EXPORT = "export"
+
+# The complete set a ModelSpec may declare. Exported so a host has something to
+# import rather than spelling capability names as bare strings, and validated in
+# ModelSpec.__post_init__ so a typo fails loudly instead of producing a model
+# whose routes silently do not exist.
+CAPABILITIES = frozenset({LIST, DETAIL, DELETE, EXPORT})

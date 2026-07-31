@@ -25,7 +25,16 @@ gives you.
 from litestar import Litestar
 from litestar.stores.memory import MemoryStore
 
-from admin_litestar import Admin, AdminConfig, ModelSpec, hash_password, verify_password
+from admin_litestar import (
+    Admin,
+    AdminConfig,
+    DETAIL,
+    EXPORT,
+    LIST,
+    ModelSpec,
+    hash_password,
+    verify_password,
+)
 
 INVOICE = ModelSpec(
     model=Invoice,
@@ -34,7 +43,7 @@ INVOICE = ModelSpec(
     group="Billing",
     list_columns=("id", "reference", "issued_at"),
     detail_columns=("id", "reference", "note", "issued_at"),
-    capabilities=frozenset({"list", "detail", "export"}),
+    capabilities=frozenset({LIST, DETAIL, EXPORT}),
     order_by="id",
     searchable=("reference",),
 )
@@ -157,10 +166,23 @@ data is mostly ids, hashes, addresses and timestamps, which align and scan far b
 monospaced column. Light and dark both ship, honouring `prefers-color-scheme` with an
 explicit `data-theme` override.
 
+`ModelSpec` validates at construction: unknown column names, a hidden column listed in
+`list_columns`, an excluded column named as searchable, or an unknown capability all raise
+immediately rather than producing an admin that quietly misbehaves.
+
 ## Status
 
 Early. The API has one real consumer, so every protocol here is a considered guess about
-the second one. Expect it to move.
+the second one. Expect `0.x` releases to move interfaces, and pin exactly if that matters.
+
+`admin_litestar.__all__` is the compatibility promise. Deeper import paths work but carry
+none — see [ARCHITECTURE.md](ARCHITECTURE.md).
+
+## Documentation
+
+- [ARCHITECTURE.md](ARCHITECTURE.md) — layout, layering, where each guarantee is enforced
+- [CHANGELOG.md](CHANGELOG.md) — what moved and when
+- [RELEASING.md](RELEASING.md) — how a release is cut
 
 ## Licence
 

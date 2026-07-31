@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from .constants import CAPABILITIES
+
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Sequence
 
@@ -54,7 +56,14 @@ class ModelSpec:
     audit_on_detail: bool = False
 
     def __post_init__(self) -> None:
-        """Reject contradictory column declarations at construction time."""
+        """Reject contradictory or unknown declarations at construction time."""
+        unknown_capabilities = set(self.capabilities) - CAPABILITIES
+        if unknown_capabilities:
+            raise ValueError(
+                f"{self.slug}: unknown capabilities: "
+                f"{sorted(unknown_capabilities)}; "
+                f"valid values are {sorted(CAPABILITIES)}"
+            )
         leaked = set(self.list_columns) & set(self.hidden_columns)
         if leaked:
             raise ValueError(
