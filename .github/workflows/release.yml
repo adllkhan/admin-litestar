@@ -1,0 +1,65 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+# No long-lived token: PyPI trusted publishing exchanges this workflow's OIDC identity
+# for a short-lived upload credential. Nothing to store, nothing to leak.
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Test before building
+        run: uv run pytest -q -W error
+
+      - name: Build
+        run: uv build
+
+      # These are package data rather than code, so a packaging regression passes every
+      # test and only breaks for consumers. Fail the release instead.
+      - name: Check the wheel carries templates, assets and the typing marker
+        run: |
+          python - <<'PY'
+          import glob, sys, zipfile
+          wheel = glob.glob("dist/*.whl")[0]
+          names = zipfile.ZipFile(wheel).namelist()
+          required = [
+              "litestar_admin/py.typed",
+              "litestar_admin/static/admin.css",
+              "litestar_admin/static/htmx.min.js",
+              "litestar_admin/templates/base.html",
+              "litestar_admin/templates/nav.html",
+          ]
+          missing = [r for r in required if r not in names]
+          sys.exit(f"wheel missing: {missing}" if missing else f"{wheel}: ok")
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    # Put a required reviewer on this environment so no release reaches PyPI
+    # without a human approving it.
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - uses: pypa/gh-action-pypi-publish@release/v1
