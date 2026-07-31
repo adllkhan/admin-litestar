@@ -1,72 +1,81 @@
 # Changelog
 
-Notable changes to `admin-litestar`. Versions follow semantic versioning, with the
-caveat that `0.x` carries no stability promise — see the note under Unreleased.
+Notable changes to `admin-litestar`. Versions follow semantic versioning, with the caveat
+that `0.x` carries no stability promise — see the note at the end of 0.1.0.
 
-## Unreleased
+## 0.1.0 — 2026-07-31
 
-### Added
+First release.
 
-- CI now covers Python 3.10 through 3.14, plus 3.15 as a reporting-only job. 3.15 is
-  currently an alpha, so a failure there does not block; the suite passes on it today.
-  `requires-python` stays `>=3.10` — nothing in the package needs a newer interpreter, and
-  the floor is verified rather than assumed.
-- `CAPABILITIES`, `LIST`, `DETAIL`, `DELETE` and `EXPORT` are now exported, so a host
-  has something to import instead of spelling capability names as bare strings.
-- `ModelSpec` rejects unknown capability names at construction. Previously a typo such
-  as `capabilities=frozenset({"lst"})` constructed successfully and produced a model
-  whose routes silently did not exist.
-- `__version__`, resolved from the installed distribution metadata.
-- `ARCHITECTURE.md`, documenting the layout, the dependency direction, and where each
-  guarantee is enforced.
-- A test pinning the public API surface, so an export appearing or disappearing shows up
-  in a diff rather than in a consumer's traceback.
+### Core
 
-### Fixed
+- `Admin` / `AdminConfig`: assembles the router, template, session and CSRF configuration a
+  Litestar host mounts. `CustomPage` lets a host contribute its own pages, rendered inside
+  the same shell and listed in the same nav, with host template directories taking
+  precedence over the package's.
+- `ModelSpec`: declarative per-model configuration, validated at construction. Unknown
+  column names, a hidden column listed in `list_columns`, an excluded column named as
+  searchable, and unknown capabilities all raise immediately rather than producing an admin
+  that quietly misbehaves.
+- Generic list, detail, delete and CSV-export routes driven entirely by specs.
+- `AuthBackend`, `AuditSink` and `CacheBackend` protocols: the host supplies its gate, its
+  audit destination and its cache, and the package knows nothing about any of them.
 
-- CI's Python matrix was decorative. `uv python install X` only downloads that
-  interpreter; the plain `uv sync` that followed picked any interpreter satisfying
-  `requires-python`, which measurably resolved to 3.14 on a machine where 3.10 had just
-  been installed. CI would have reported four passes across 3.10–3.13 while testing none
-  of them. Both workflows now pin `UV_PYTHON`, and CI asserts the running interpreter is
-  the matrix one before testing. Verified: the suite does pass on 3.10, the declared floor.
+### The column boundary
 
-### Changed
+Enforced where statements are built rather than where values are rendered, so a wrong
+template cannot leak and a list page pays no decryption cost:
 
-- **Breaking:** `Registry`, `Revalidator` and `require_actor` are no longer exported from
-  the top-level package. A host never constructs any of them — `Admin` builds and wires
-  all three — and exporting them promised compatibility for internal wiring. They remain
-  importable from their own modules, which carry no compatibility promise.
-- The host-import boundary test is now an allowlist rather than a denylist: the package
-  may import only the standard library, its three declared dependencies, and itself. The
-  previous version named one consumer's top-level packages, which would have caught
-  nothing for anyone else. It now parses with `ast` rather than matching text, so
-  multi-line, aliased, comma-separated and in-docstring forms are all handled.
+- `hidden_columns` are loaded in detail views and never by a list query — `load_only` keeps
+  them out of the SQL itself.
+- `excluded_columns` are never selected, rendered or exported anywhere.
+- CSV export takes its column set from the spec, not from the row, so an extra key in a row
+  dictionary cannot reach a downloaded file.
 
-### Notes
+### Search and pagination
+
+- `searchable` columns match with `ILIKE`; `exact_searchable` columns match by equality,
+  with an optional `search_transform` applied to the term first — which is how a host
+  searches a keyed-digest column without the package knowing anything about its hashing.
+  Exact matching wins when both are declared, because a digest cannot be matched partially.
+- Keyset pagination, never `OFFSET`. Cursors are coerced to the order column's Python type,
+  with `fromisoformat` for dates and datetimes. A malformed or timezone-naive cursor is
+  treated as absent and yields an unpaginated page rather than an error, because cursors
+  arrive from URLs and URLs get edited.
+
+### Authentication
+
+- `hash_password` / `verify_password` using `hashlib.scrypt` with `n=16384, r=8, p=1,
+  dklen=32`. The encoding is 86 characters, so it fits a `String(128)` column. Anything not
+  in that format fails verification; there is no fallback to another scheme, and a
+  structurally broken value returns `False` rather than raising.
+- Login failures counted per username **and** client IP, locking after 5 attempts for 15
+  minutes — deliberately separate from any lockout counter on a host's own user rows, so
+  admin brute-force cannot lock someone out of the host application.
+- Server-side sessions over a host-supplied store. `AuthBackend.is_valid` is re-checked on
+  every request and cached briefly, so revoking access takes effect in seconds rather than
+  at session expiry, and a failed revalidation clears the session before rejecting.
+- CSRF protection on every mutating route.
+
+### Presentation
+
+- The "Instrument" design system: dark, near-monochrome, one amber accent, monospace for
+  identifiers. Light and dark both ship, honouring `prefers-color-scheme` with an explicit
+  `data-theme` override. No build step and no runtime CDN — the stylesheet is hand-written
+  and HTMX is vendored as package data.
+- `py.typed`, so consumers' type checkers see the annotations.
+
+### Guarantees about the package itself
+
+- The package imports only the standard library, `litestar`, `sqlalchemy` and `jinja2`.
+  A test enforces this as an allowlist, so an undeclared dependency or a reach into a host
+  application fails the suite.
+- Tested on Python 3.10 through 3.14, plus 3.15 as a reporting-only job.
+- The test suite runs under `-W error`.
+- `admin_litestar.__all__` is the compatibility promise. Deeper import paths work but carry
+  none.
+
+### Note on stability
 
 The API has one real consumer, so every protocol here is a considered guess about the
-second. Expect `0.x` releases to move interfaces. Pin exactly if that matters to you.
-
-## 0.1.0
-
-Initial development. Not released to an index.
-
-- `Admin` / `AdminConfig`: assembles the router, template, session and CSRF
-  configuration a Litestar host mounts.
-- `ModelSpec` / `Registry`: declarative per-model configuration with validation at
-  construction time.
-- Generic list, detail, delete and CSV-export routes driven entirely by specs.
-- A column boundary enforced where statements are built: `hidden_columns` never load in
-  list queries, `excluded_columns` never load anywhere.
-- Keyset pagination with type-aware cursor coercion, including `fromisoformat` parsing
-  for date and datetime order columns.
-- Search: `ILIKE` over `searchable`, equality over `exact_searchable` with an optional
-  `search_transform` so a host can query a keyed-digest column.
-- `AuthBackend`, `AuditSink` and `CacheBackend` protocols; scrypt password hashing;
-  server-side sessions; per-username-and-IP login lockout; CSRF on mutating routes;
-  session revalidation so revocation takes effect in seconds.
-- `CustomPage` for host-supplied pages, with host template directories taking
-  precedence over the package's.
-- The "Instrument" design system, shipped as package data with vendored HTMX and no
-  build step.
+second. Expect `0.x` releases to move interfaces; pin exactly if that matters to you.
