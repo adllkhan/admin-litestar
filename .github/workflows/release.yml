@@ -12,11 +12,23 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+
+    # Pinned to the declared floor rather than left to uv's choice. A plain
+    # `uv run` resolves any interpreter satisfying requires-python — measurably
+    # 3.14 on one machine — so a release would otherwise be validated on a
+    # version this package does not claim to support. If it passes on the
+    # oldest supported Python it passes on the rest.
+    env:
+      UV_PYTHON: "3.10"
+
     steps:
       - uses: actions/checkout@v4
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python
+        run: uv python install "${UV_PYTHON}"
 
       - name: Test before building
         run: uv run pytest -q -W error

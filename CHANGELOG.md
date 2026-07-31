@@ -18,6 +18,15 @@ caveat that `0.x` carries no stability promise — see the note under Unreleased
 - A test pinning the public API surface, so an export appearing or disappearing shows up
   in a diff rather than in a consumer's traceback.
 
+### Fixed
+
+- CI's Python matrix was decorative. `uv python install X` only downloads that
+  interpreter; the plain `uv sync` that followed picked any interpreter satisfying
+  `requires-python`, which measurably resolved to 3.14 on a machine where 3.10 had just
+  been installed. CI would have reported four passes across 3.10–3.13 while testing none
+  of them. Both workflows now pin `UV_PYTHON`, and CI asserts the running interpreter is
+  the matrix one before testing. Verified: the suite does pass on 3.10, the declared floor.
+
 ### Changed
 
 - **Breaking:** `Registry`, `Revalidator` and `require_actor` are no longer exported from
