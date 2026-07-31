@@ -84,7 +84,11 @@ required = [
     "admin_litestar/templates/nav.html",
 ]
 missing = [r for r in required if r not in names]
-sys.exit(f"wheel missing: {missing}" if missing else f"{wheel}: ok")
+# sys.exit(str) prints the string and exits 1, so passing a success message to it
+# fails the command. Exit only on the failure path.
+if missing:
+    sys.exit(f"wheel missing: {missing}")
+print(f"{wheel}: all required assets present")
 PY
 ```
 

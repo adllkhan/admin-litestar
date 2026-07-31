@@ -65,7 +65,11 @@ jobs:
               "admin_litestar/templates/nav.html",
           ]
           missing = [r for r in required if r not in names]
-          sys.exit(f"wheel missing: {missing}" if missing else f"{wheel}: ok")
+          # sys.exit(str) prints the string and exits 1, so a success message
+          # passed to it fails the job. Only exit on the failure path.
+          if missing:
+              sys.exit(f"wheel missing: {missing}")
+          print(f"{wheel}: all required assets present")
           PY
 
       # Testing the source tree does not test the wheel. Paths that resolve from a
