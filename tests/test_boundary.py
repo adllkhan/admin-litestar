@@ -9,7 +9,7 @@ FORBIDDEN = ("pgo_auth", "core", "modules", "infrastructure", "app")
 SOURCE_ROOT = Path(litestar_admin.__file__).resolve().parent
 
 _IMPORT_RE = re.compile(
-    r"^(?:import|from)\s+(" + "|".join(FORBIDDEN) + r")(?:\.|\s|$)"
+    r"^(?:import|from)\s+(" + "|".join(FORBIDDEN) + r")(?:\.|\s|,|;|$)"
 )
 
 
@@ -31,6 +31,14 @@ def test_no_host_application_imports() -> None:
             stripped = line.strip()
             if _IMPORT_RE.match(stripped):
                 offenders.append(f"{path.name}:{number}: {stripped}")
+            if stripped.startswith("#"):
+                # A comment mentioning import_module cannot execute, so it is
+                # not an evasion of the boundary — skip it to avoid flagging
+                # prose. Docstring bodies are not excluded: doing so cheaply
+                # would need an AST walk, so a docstring naming a forbidden
+                # package in an import_module(...) call would still be
+                # flagged. That residual false-positive risk is accepted.
+                continue
             if "import_module(" in stripped:
                 if any(pkg in stripped for pkg in FORBIDDEN):
                     offenders.append(f"{path.name}:{number}: {stripped}")
@@ -48,6 +56,16 @@ def test_boundary_catches_bare_package_imports() -> None:
         ("from app import Y", True),
         ("import infrastructure", True),
         ("from infrastructure import Z", True),
+    ]
+    for line, should_match in test_cases:
+        assert bool(_IMPORT_RE.match(line)) == should_match, f"Failed on: {line}"
+
+
+def test_boundary_catches_comma_and_semicolon_separators() -> None:
+    """A multi-import or statement-separated line cannot evade the scan."""
+    test_cases = [
+        ("import core, sys", True),
+        ("import core;x=1", True),
     ]
     for line, should_match in test_cases:
         assert bool(_IMPORT_RE.match(line)) == should_match, f"Failed on: {line}"

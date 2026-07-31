@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Sequence
@@ -69,7 +69,8 @@ class ModelSpec:
         known = _column_names(self.model)
         if self.order_by not in known:
             raise ValueError(f"{self.slug}: order_by {self.order_by!r} is not a column")
-        unknown = declared - known
+        all_declared = declared | set(self.hidden_columns) | set(self.excluded_columns)
+        unknown = all_declared - known
         if unknown:
             raise ValueError(f"{self.slug}: unknown columns: {sorted(unknown)}")
         # Validate searchable, exact_searchable, and filters.

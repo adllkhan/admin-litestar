@@ -81,9 +81,16 @@ def _coerce_cursor(order_column: Any, cursor: str) -> Any:
     # a value round-tripped through a URL).
     if python_type is datetime.datetime:
         try:
-            return datetime.datetime.fromisoformat(cursor)
+            parsed = datetime.datetime.fromisoformat(cursor)
         except (ValueError, TypeError):
             return None
+        # A naive datetime bound against a timezone-aware column mismatches
+        # at the driver level (e.g. asyncpg raises). Treat it as an absent
+        # cursor, same as any other malformed value.
+        column_is_aware = getattr(order_column.type, "timezone", False)
+        if parsed.tzinfo is None and column_is_aware:
+            return None
+        return parsed
 
     if python_type is datetime.date:
         try:

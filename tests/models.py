@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, Integer, LargeBinary, String
+from sqlalchemy import Boolean, DateTime, Integer, LargeBinary, String
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -20,7 +20,7 @@ class Widget(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(50))
     kind: Mapped[str] = mapped_column(String(20))
-    active: Mapped[bool] = mapped_column(String(5))
+    active: Mapped[bool] = mapped_column(Boolean)
     _blob_data: Mapped[bytes | None] = mapped_column(
         "_blob_data", LargeBinary, nullable=True
     )

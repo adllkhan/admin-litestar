@@ -36,7 +36,15 @@ def test_missing_keys_render_as_empty_fields() -> None:
 
 def test_hidden_columns_never_appear_in_export() -> None:
     """A hidden column in the row dict does not reach the output."""
-    rows = [{"id": 1, "name": "w", "kind": "k", "created_at": "t", "_blob_data": b"SECRET"}]
+    rows = [
+        {
+            "id": 1,
+            "name": "w",
+            "kind": "k",
+            "created_at": "t",
+            "_blob_data": b"SECRET",
+        }
+    ]
     lines = list(csv_rows(WIDGET, rows))
     output = "".join(lines)
     assert "_blob_data" not in output

@@ -1,5 +1,6 @@
 """Query builders: the hidden/excluded column boundary and pagination."""
 
+import datetime
 from dataclasses import replace
 
 import pytest
@@ -136,7 +137,6 @@ def test_datetime_ordered_spec_with_iso_cursor() -> None:
     statement = list_statement(spec, after="2026-07-29T09:14:00+00:00")
     compiled = statement.compile()
     # Check that a datetime parameter is bound, not a string.
-    import datetime
     assert any(isinstance(v, datetime.datetime) for v in compiled.params.values())
 
 
@@ -144,4 +144,15 @@ def test_datetime_ordered_spec_with_nonsense_cursor() -> None:
     """A malformed datetime cursor is silently ignored."""
     spec = replace(WIDGET, order_by="created_at")
     sql = _sql(list_statement(spec, after="not-a-timestamp"))
+    assert "created_at <" not in sql
+
+
+def test_naive_datetime_cursor_against_aware_column_is_ignored() -> None:
+    """A cursor with no UTC offset must not reach a tz-aware column.
+
+    Binding a naive datetime against ``DateTime(timezone=True)`` mismatches
+    at the driver level, so it is treated as an absent cursor instead.
+    """
+    spec = replace(WIDGET, order_by="created_at")
+    sql = _sql(list_statement(spec, after="2026-07-29T09:14:00"))
     assert "created_at <" not in sql

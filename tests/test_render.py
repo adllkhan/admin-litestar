@@ -36,9 +36,36 @@ def test_long_values_are_truncated_with_an_ellipsis() -> None:
     assert rendered.endswith("…")
 
 
+def test_value_at_the_length_boundary_passes_through_unchanged() -> None:
+    """A string of exactly CELL_MAX_LENGTH is not truncated."""
+    text = "x" * CELL_MAX_LENGTH
+    assert render_value(text) == text
+
+
+def test_value_one_over_the_length_boundary_is_truncated() -> None:
+    """A string one character past CELL_MAX_LENGTH is truncated with an ellipsis."""
+    text = "x" * (CELL_MAX_LENGTH + 1)
+    rendered = render_value(text)
+    assert rendered == "x" * CELL_MAX_LENGTH + "…"
+
+
 def test_bytes_do_not_render_as_a_python_repr() -> None:
     """Binary columns must not leak b'...' into the page."""
     assert "b'" not in render_value(b"\x00\x01")
+
+
+def test_bytearray_does_not_render_as_a_python_repr() -> None:
+    """A bytearray column must not leak a Python repr onto the page."""
+    assert "bytearray(" not in render_value(bytearray(b"\x00\x01"))
+
+
+def test_memoryview_does_not_render_as_a_python_repr() -> None:
+    """A memoryview column must not leak a Python repr onto the page.
+
+    This matters because in the first real consumer these columns hold AES
+    ciphertext, and a fall-through to str() would put its repr on the page.
+    """
+    assert "memory at" not in render_value(memoryview(b"\x00\x01"))
 
 
 def test_htmx_detection() -> None:
