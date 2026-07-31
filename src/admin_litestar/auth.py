@@ -85,7 +85,7 @@ class Revalidator:
         session_factory: Callable[[], Any],
         cache_provider: Callable[[Any], CacheBackend],
     ) -> None:
-        """Store the collaborators supplied by :class:`~litestar_admin.Admin`."""
+        """Store the collaborators supplied by :class:`~admin_litestar.Admin`."""
         self._backend = backend
         self._session_factory = session_factory
         self._cache_provider = cache_provider

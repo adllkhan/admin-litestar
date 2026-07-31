@@ -7,7 +7,7 @@ import pytest
 from sqlalchemy import Select
 from sqlalchemy.dialects import postgresql
 
-from litestar_admin.queries import (
+from admin_litestar.queries import (
     count_statement,
     detail_statement,
     list_statement,

@@ -6,8 +6,8 @@ from litestar import Litestar
 from litestar.stores.memory import MemoryStore
 from litestar.testing import TestClient
 
-from litestar_admin import Admin, AdminConfig, ModelSpec
-from litestar_admin.constants import (
+from admin_litestar import Admin, AdminConfig, ModelSpec
+from admin_litestar.constants import (
     ACTION_DELETE,
     ACTION_EXPORT,
     DELETE,

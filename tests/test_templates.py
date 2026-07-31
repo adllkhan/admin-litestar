@@ -2,8 +2,8 @@
 
 from litestar.plugins.jinja import JinjaTemplateEngine
 
-from litestar_admin.render import render_value
-from litestar_admin.templates import TEMPLATES
+from admin_litestar.render import render_value
+from admin_litestar.templates import TEMPLATES
 
 from .test_spec import WIDGET
 

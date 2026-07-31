@@ -2,8 +2,8 @@
 
 import pytest
 
-from litestar_admin import ModelSpec, Registry
-from litestar_admin.constants import DETAIL, LIST
+from admin_litestar import ModelSpec, Registry
+from admin_litestar.constants import DETAIL, LIST
 
 from .models import Secret, Widget
 

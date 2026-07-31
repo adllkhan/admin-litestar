@@ -7,7 +7,7 @@ from typing import Any
 from litestar import Litestar
 from litestar.stores.memory import MemoryStore
 
-from litestar_admin import Admin, AdminConfig
+from admin_litestar import Admin, AdminConfig
 
 from .test_spec import SECRET, WIDGET
 

@@ -1,4 +1,4 @@
-# litestar-admin
+# admin-litestar
 
 A server-rendered admin panel for [Litestar](https://litestar.dev) applications backed by
 SQLAlchemy. No build step, no JavaScript toolchain, no CDN at runtime — the CSS is
@@ -11,7 +11,7 @@ in this repository fails if the package ever imports a host application.
 ## Install
 
 ```bash
-uv add litestar-admin
+uv add admin-litestar
 ```
 
 Requires Python 3.10+. Depends only on `litestar`, `sqlalchemy` and `jinja2`.
@@ -25,7 +25,7 @@ gives you.
 from litestar import Litestar
 from litestar.stores.memory import MemoryStore
 
-from litestar_admin import Admin, AdminConfig, ModelSpec, hash_password, verify_password
+from admin_litestar import Admin, AdminConfig, ModelSpec, hash_password, verify_password
 
 INVOICE = ModelSpec(
     model=Invoice,
@@ -125,7 +125,7 @@ Generic tables cannot do everything. `CustomPage` lets a host contribute its own
 rendered inside the same shell and listed in the same nav:
 
 ```python
-from litestar_admin import CustomPage
+from admin_litestar import CustomPage
 
 dashboard = CustomPage(
     slug="dashboard", label="Dashboard", group="Overview", handlers=[DashboardController]

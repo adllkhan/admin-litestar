@@ -1,11 +1,11 @@
 [project]
-name = "litestar-admin"
+name = "admin-litestar"
 version = "0.1.0"
 description = "Server-rendered admin for Litestar + SQLAlchemy applications"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }
-authors = [{ name = "Adlet Omirtai", email = "aomertayevich@gmail.com" }]
+authors = [{ name = "Omirtay Adilkhan", email = "aomertayevich@gmail.com" }]
 keywords = ["litestar", "sqlalchemy", "admin", "htmx", "asgi"]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -27,6 +27,11 @@ dependencies = [
     "jinja2>=3.1",
 ]
 
+[project.urls]
+Homepage = "https://github.com/adllkhan/admin-litestar"
+Repository = "https://github.com/adllkhan/admin-litestar"
+Issues = "https://github.com/adllkhan/admin-litestar/issues"
+
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",
@@ -38,7 +43,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/litestar_admin"]
+packages = ["src/admin_litestar"]
 
 [tool.hatch.build.targets.sdist]
 include = ["src", "tests", "README.md", "LICENSE", "pyproject.toml"]

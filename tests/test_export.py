@@ -3,7 +3,7 @@
 import csv
 import io
 
-from litestar_admin.export import csv_rows
+from admin_litestar.export import csv_rows
 
 from .test_spec import WIDGET
 

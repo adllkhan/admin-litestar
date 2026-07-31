@@ -1,7 +1,7 @@
 """Cell formatting and request-shape helpers."""
 
-from litestar_admin.constants import CELL_MAX_LENGTH, EMPTY_CELL
-from litestar_admin.render import is_htmx, project, render_value
+from admin_litestar.constants import CELL_MAX_LENGTH, EMPTY_CELL
+from admin_litestar.render import is_htmx, project, render_value
 
 from .models import Widget
 

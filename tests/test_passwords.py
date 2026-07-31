@@ -1,7 +1,7 @@
 """scrypt password hashing: round-trip and rejection of foreign formats."""
 
-from litestar_admin import hash_password, verify_password
-from litestar_admin.constants import PASSWORD_MAX_LENGTH
+from admin_litestar import hash_password, verify_password
+from admin_litestar.constants import PASSWORD_MAX_LENGTH
 
 DJANGO_HASH = "pbkdf2_sha256$390000$abc123$Zm9vYmFyYmF6cXV1eA=="
 

@@ -4,7 +4,7 @@ from litestar import Litestar, get
 from litestar.response import Template
 from litestar.testing import TestClient
 
-from litestar_admin.admin import CSRF_COOKIE
+from admin_litestar.admin import CSRF_COOKIE
 
 from .hostapp import FakeAuth, RecordingAudit, build_admin, build_app
 

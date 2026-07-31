@@ -33,11 +33,11 @@ jobs:
           wheel = glob.glob("dist/*.whl")[0]
           names = zipfile.ZipFile(wheel).namelist()
           required = [
-              "litestar_admin/py.typed",
-              "litestar_admin/static/admin.css",
-              "litestar_admin/static/htmx.min.js",
-              "litestar_admin/templates/base.html",
-              "litestar_admin/templates/nav.html",
+              "admin_litestar/py.typed",
+              "admin_litestar/static/admin.css",
+              "admin_litestar/static/htmx.min.js",
+              "admin_litestar/templates/base.html",
+              "admin_litestar/templates/nav.html",
           ]
           missing = [r for r in required if r not in names]
           sys.exit(f"wheel missing: {missing}" if missing else f"{wheel}: ok")

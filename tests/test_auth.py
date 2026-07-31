@@ -3,7 +3,7 @@
 import pytest
 from litestar.exceptions import NotAuthorizedException
 
-from litestar_admin.auth import (
+from admin_litestar.auth import (
     Revalidator,
     actor_of,
     clear_failures,
@@ -11,7 +11,7 @@ from litestar_admin.auth import (
     register_failure,
     require_actor,
 )
-from litestar_admin.constants import LOGIN_MAX_ATTEMPTS, SESSION_ACTOR_KEY
+from admin_litestar.constants import LOGIN_MAX_ATTEMPTS, SESSION_ACTOR_KEY
 
 
 class _Cache:
