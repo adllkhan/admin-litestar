@@ -44,6 +44,12 @@ jobs:
           # finds none, and warns that the cache can never be invalidated. Key it
           # on the dependency declaration instead.
           cache-dependency-glob: "pyproject.toml"
+          # Without a suffix every matrix leg computes the same cache key — it is
+          # derived from the uv version and the runner platform, not the
+          # interpreter — so six parallel jobs race to reserve one entry and five
+          # log a save failure. Sharing was also wrong on its own terms, since a
+          # resolved environment is per-interpreter.
+          cache-suffix: ${{ matrix.python-version }}
 
       - name: Set up Python ${{ matrix.python-version }}
         run: uv python install "${UV_PYTHON}"
