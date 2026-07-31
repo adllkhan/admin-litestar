@@ -7,6 +7,10 @@ caveat that `0.x` carries no stability promise — see the note under Unreleased
 
 ### Added
 
+- CI now covers Python 3.10 through 3.14, plus 3.15 as a reporting-only job. 3.15 is
+  currently an alpha, so a failure there does not block; the suite passes on it today.
+  `requires-python` stays `>=3.10` — nothing in the package needs a newer interpreter, and
+  the floor is verified rather than assumed.
 - `CAPABILITIES`, `LIST`, `DETAIL`, `DELETE` and `EXPORT` are now exported, so a host
   has something to import instead of spelling capability names as bare strings.
 - `ModelSpec` rejects unknown capability names at construction. Previously a typo such
