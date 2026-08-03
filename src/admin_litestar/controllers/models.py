@@ -33,8 +33,10 @@ if TYPE_CHECKING:
     from ..spec import ModelSpec
 
 LIST_TEMPLATE = "list.html"
+ROWS_TEMPLATE = "_rows.html"
 DETAIL_TEMPLATE = "detail.html"
 CSV_MEDIA_TYPE = "text/csv"
+HTMX_HEADER = "HX-Request"
 
 
 def _spec_or_404(registry: Registry, slug: str, capability: str) -> ModelSpec:
@@ -78,17 +80,21 @@ class ModelController(Controller):
         ).scalars().all()
         rows = [project(row, spec.list_columns) for row in result]
         cursor = rows[-1][spec.order_by] if len(rows) == PAGE_SIZE else None
-        return Template(
-            LIST_TEMPLATE,
-            context={
-                "spec": spec,
-                "rows": rows,
-                "search": search,
-                "filters": filters,
-                "cursor": cursor,
-                "page_url": f"{admin_path}/m/{spec.slug}",
-            },
-        )
+        context = {
+            "spec": spec,
+            "rows": rows,
+            "search": search,
+            "filters": filters,
+            "after": after,
+            "cursor": cursor,
+            "page_url": f"{admin_path}/m/{spec.slug}",
+        }
+        # A paging click asks for rows to append, not a second copy of the page;
+        # the same URL without the HTMX header still renders the whole page, so
+        # it stays usable with scripting off.
+        if after is not None and request.headers.get(HTMX_HEADER):
+            return Template(ROWS_TEMPLATE, context=context)
+        return Template(LIST_TEMPLATE, context=context)
 
     @get("/{slug:str}/export")
     async def export(

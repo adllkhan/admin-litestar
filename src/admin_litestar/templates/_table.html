@@ -3,16 +3,6 @@
     <thead>
       <tr>{% for column in spec.list_columns %}<th>{{ column }}</th>{% endfor %}</tr>
     </thead>
-    <tbody>
-      {% for row in rows %}
-      <tr>
-        {% for column in spec.list_columns %}<td>{{ render_value(row[column]) }}</td>{% endfor %}
-      </tr>
-      {% endfor %}
-    </tbody>
+    <tbody>{% include "_rows.html" %}</tbody>
   </table>
 </div>
-{% if cursor %}
-<button class="btn" hx-get="{{ page_url }}?after={{ cursor }}"
-        hx-target="closest .wrap" hx-swap="outerHTML">Load more</button>
-{% endif %}

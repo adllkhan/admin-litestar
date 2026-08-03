@@ -2,12 +2,15 @@
 {% block title %}login{% endblock %}
 {% block content %}
 <form method="post" action="{{ admin_path }}/login" class="form">
-  <div style="font-weight:700;font-size:14px">admin</div>
+  <div>
+    <div class="label">{{ brand }}</div>
+    <div class="form-title">Sign in</div>
+  </div>
   {% if error %}<div class="chip chip--danger">{{ error }}</div>{% endif %}
   <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-  <input name="username" placeholder="username" autocomplete="username" required>
-  <input name="password" type="password" placeholder="password"
+  <input name="username" placeholder="Username" autocomplete="username" required>
+  <input name="password" type="password" placeholder="Password"
          autocomplete="current-password" required>
-  <button class="btn" type="submit">Log in</button>
+  <button class="btn btn--primary" type="submit">Log in</button>
 </form>
 {% endblock %}

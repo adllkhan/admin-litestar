@@ -178,6 +178,36 @@ def test_list_page_renders_the_projected_row() -> None:
     assert "Duals" in response.text
 
 
+def test_a_paging_request_answers_with_rows_only() -> None:
+    """An HTMX paging click gets a fragment to append, not a whole second page.
+
+    Swapping a full document into a tbody would nest a second nav and stylesheet
+    link inside the table. Observed: the response carries the row and none of the
+    page chrome.
+    """
+    app, _ = _build_dual_app()
+    with TestClient(app=app) as client:
+        _logged_in(client)
+        response = client.get(
+            "/admin/m/dual", params={"after": "1"}, headers={"HX-Request": "true"}
+        )
+    assert response.status_code == 200
+    assert "Widget A" in response.text
+    assert "<html" not in response.text
+    assert "admin.css" not in response.text
+
+
+def test_the_same_paging_url_renders_a_full_page_without_htmx() -> None:
+    """No HTMX header means a plain navigation, which needs the whole page."""
+    app, _ = _build_dual_app()
+    with TestClient(app=app) as client:
+        _logged_in(client)
+        response = client.get("/admin/m/dual", params={"after": "1"})
+    assert response.status_code == 200
+    assert "<html" in response.text
+    assert "Widget A" in response.text
+
+
 def test_export_route_wins_over_the_detail_route_for_the_literal_segment() -> None:
     """``/export`` must resolve to the export handler, not detail with pk='export'.
 

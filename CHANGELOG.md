@@ -3,6 +3,61 @@
 Notable changes to `admin-litestar`. Versions follow semantic versioning, with the caveat
 that `0.x` carries no stability promise — see the note at the end of 0.1.0.
 
+## 0.3.0 — 2026-08-03
+
+### Fixed — `Load more` never loaded anything (0.1.0, 0.2.0)
+
+The paging button was rendered after the `.wrap` div and carried
+`hx-target="closest .wrap"`. HTMX's `closest` matches ancestors only, and the button had no
+`.wrap` ancestor, so the target never resolved and clicking did nothing at all — every list
+view was capped at the first 50 rows with no way forward.
+
+Two further defects sat behind it, and would have surfaced the moment the selector was
+corrected: the paging URL was answered with `list.html`, a whole document, which swapped
+into the page would have nested a second nav and stylesheet link inside the table; and
+`outerHTML` on the table container *replaced* the rows on screen instead of adding to them,
+so a working button would have discarded page one on the way to page two. The URL also
+dropped the active search and filters, paging from a different result set than the one
+being read.
+
+`Load more` is now a row at the end of the table body that targets `closest tr` and swaps
+itself for the next page plus a fresh trigger — the documented HTMX click-to-load shape, and
+the reason rows now accumulate in the existing `tbody`. Its URL carries the current search
+and filters. The route answers an `HX-Request` for a cursor with the new `_rows.html`
+fragment; the same URL without that header still renders the full page, so paging degrades
+to plain navigation when scripting is off.
+
+### Changed — the interface is larger, and no longer one flat tone
+
+The stylesheet was tuned for density: 12px body text, 3px nav padding, hairline separators
+and a single gold accent over one background colour. Everything read at the same weight,
+so nothing stood out.
+
+The scale moves up — 14px body text, 13px monospace in tables and detail rows, larger
+controls and touch targets, a 224px nav rail — and the palette gains depth: a distinct
+rail tone behind the nav, a surface tone for cards and tables, a raised tone for zebra
+rows, and hue-tinted borders instead of neutral grey. Three type roles now carry the
+hierarchy where one did before: a system serif for the brand and page titles, the system
+sans for chrome, monospace for data.
+
+Nav groups are hue-coded. Each group in the sidebar takes one of six hues, and the pages
+belonging to it pick that hue up again in the page header dot, the active nav marker, the
+table header rule and the detail card — so the group a model lives in is visible from
+anywhere in the admin. Stat tiles cycle the same six hues automatically, no host markup
+change needed. Every accented rule reads a `--hue` custom property that falls back to the
+accent, so host-authored pages inherit the scheme for free.
+
+Also: list and detail pages gained a header with a group eyebrow above the title, empty
+result sets say so instead of rendering a bare table, the login form is a card with a
+proper heading, `:focus-visible` rings are drawn everywhere, `prefers-reduced-motion` is
+respected, and below 860px the rail folds into a top strip with the page header stacking.
+Both themes were rebuilt in step. No new dependency, no webfont, no CDN — the stylesheet
+is still hand-written and the font stacks are the ones already on the machine.
+
+Class names are unchanged, and new ones (`.page`, `.pad`, `.filters`, `.nav-group`,
+`.title`, `.eyebrow`) are additive. Host templates that reuse `.btn`, `.tbl`, `.stat`,
+`.chip`, `.tabs`, `.split` or `.pane` keep working, restyled.
+
 ## 0.2.0 — 2026-07-31
 
 First contact with a real consumer exposed five defects. All five are fixed here; the

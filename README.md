@@ -131,6 +131,12 @@ column's Python type — dates and datetimes are parsed with `fromisoformat`. A 
 timezone-naive cursor is treated as absent and yields an unpaginated first page rather than
 an error, because cursors arrive from URLs and URLs get edited.
 
+The list page pages in place: `Load more` is a row at the end of the table body that swaps
+itself for the next page plus a fresh trigger, so rows accumulate. Its URL carries the
+search and filters currently applied. When the request arrives with an `HX-Request` header
+the route answers with the rows fragment alone; the same URL opened directly renders the
+whole page, so paging degrades to plain navigation with scripting off.
+
 ## Supplying specs
 
 A host with many domain modules can pass its specs explicitly, as above, or keep a

@@ -1,20 +1,30 @@
 <nav class="side">
   <div class="brand"><a href="{{ admin_path }}/" style="color:inherit;text-decoration:none">{{ brand }}</a></div>
+  {# Each group carries one of the six hues defined in admin.css; the pages it
+     links to pick that hue up again in their own header and table. #}
   {% for group in groups %}
-    <div class="label" style="padding:10px 6px 3px">{{ group }}</div>
-    {% for spec in registry.in_group(group) %}
-      <a href="{{ url_for_spec(spec) }}"
-         {% if request.url.path == url_for_spec(spec) %}aria-current="page"{% endif %}>{{ spec.label }}</a>
-    {% endfor %}
+    <div class="nav-group" style="--hue: var(--hue-{{ loop.index0 % 6 }})">
+      <div class="label nav-label">{{ group }}</div>
+      {% for spec in registry.in_group(group) %}
+        <a href="{{ url_for_spec(spec) }}"
+           {% if request.url.path == url_for_spec(spec) %}aria-current="page"{% endif %}>{{ spec.label }}</a>
+      {% endfor %}
+    </div>
   {% endfor %}
-  {% for page in pages if page.label %}
-    {% if loop.first %}<div class="label" style="padding:10px 6px 3px">Pages</div>{% endif %}
-    <a href="{{ url_for_page(page) }}"
-       {% if request.url.path == url_for_page(page) %}aria-current="page"{% endif %}>{{ page.label }}</a>
-  {% endfor %}
-  <div class="label" style="padding:12px 6px 3px">Session</div>
-  <form method="post" action="{{ admin_path }}/logout">
-    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-    <button class="btn" type="submit">Log out</button>
-  </form>
+  {% if pages | selectattr("label") | first %}
+    <div class="nav-group" style="--hue: var(--hue-{{ groups | length % 6 }})">
+      <div class="label nav-label">Pages</div>
+      {% for page in pages if page.label %}
+        <a href="{{ url_for_page(page) }}"
+           {% if request.url.path == url_for_page(page) %}aria-current="page"{% endif %}>{{ page.label }}</a>
+      {% endfor %}
+    </div>
+  {% endif %}
+  <div class="nav-foot">
+    <div class="label nav-label">Session</div>
+    <form method="post" action="{{ admin_path }}/logout">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+      <button class="btn" type="submit">Log out</button>
+    </form>
+  </div>
 </nav>

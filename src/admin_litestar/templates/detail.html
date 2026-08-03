@@ -1,21 +1,29 @@
 {% extends "base.html" %}
 {% block title %}{{ spec.label }} {{ pk }}{% endblock %}
 {% block content %}
-<div class="bar">
-  <strong>{{ spec.label }} · {{ pk }}</strong>
-  {% if spec.renders("delete") %}
-  <form method="post" action="{{ page_url }}/{{ pk }}/delete" style="margin-left:auto">
-    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-    <button class="btn btn--danger" type="submit">Delete</button>
-  </form>
-  {% endif %}
-</div>
-<div class="rows">
-  {% for column in spec.detail_columns %}
-  <div class="row">
-    <span class="label">{{ column }}</span>
-    <span class="mono">{{ render_value(row[column]) }}</span>
+{% set hue = groups.index(spec.group) % 6 if spec.group in groups else 0 %}
+<div class="page" style="--hue: var(--hue-{{ hue }})">
+  <div class="bar">
+    <div class="head">
+      <div class="eyebrow"><span class="dot"></span>{{ spec.group }} · {{ spec.label }}</div>
+      <h1 class="title">Record <span class="pk">{{ pk }}</span></h1>
+    </div>
+    {% if spec.renders("delete") %}
+    <div class="actions">
+      <form method="post" action="{{ page_url }}/{{ pk }}/delete">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn--danger" type="submit">Delete</button>
+      </form>
+    </div>
+    {% endif %}
   </div>
-  {% endfor %}
+  <div class="rows">
+    {% for column in spec.detail_columns %}
+    <div class="row">
+      <span class="label">{{ column }}</span>
+      <span class="mono">{{ render_value(row[column]) }}</span>
+    </div>
+    {% endfor %}
+  </div>
 </div>
 {% endblock %}
