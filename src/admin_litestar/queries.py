@@ -152,10 +152,36 @@ def count_statement(spec: ModelSpec) -> Select:
     return select(func.count()).select_from(spec.model)
 
 
+def _coerce_pk(pk_column: Any, pk: Any) -> Any:
+    """Coerce a URL-supplied primary key to the column's Python type.
+
+    A primary key arriving from a route path is always a ``str`` — the
+    generic detail and delete routes declare ``{pk:str}`` — but the column
+    itself is commonly an integer. PostgreSQL via asyncpg refuses an
+    implicit ``bigint = character varying`` comparison, so a well-formed
+    numeric pk against an integer-keyed model would otherwise fail at the
+    database rather than match the row it plainly names. A pk that fails to
+    coerce is passed through unchanged: it cannot match any row of that
+    type either way, and returning it as-is keeps lookups against
+    string-keyed columns — which never needed coercion — unaffected.
+    """
+    try:
+        python_type = pk_column.type.python_type
+    except NotImplementedError:
+        return pk
+    if python_type is str or isinstance(pk, python_type):
+        return pk
+    try:
+        return python_type(pk)
+    except (ValueError, TypeError):
+        return pk
+
+
 def detail_statement(spec: ModelSpec, pk: Any) -> Select:
     """Build the detail query, loading the spec's detail columns."""
+    pk_column = primary_key(spec.model)
     return (
         select(spec.model)
         .options(load_only(*_attributes(spec.model, spec.detail_columns)))
-        .where(primary_key(spec.model) == pk)
+        .where(pk_column == _coerce_pk(pk_column, pk))
     )

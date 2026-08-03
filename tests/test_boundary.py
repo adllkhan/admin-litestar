@@ -26,6 +26,7 @@ ALLOWED = DECLARED | {SELF} | frozenset(sys.stdlib_module_names)
 
 SOURCE_ROOT = Path(admin_litestar.__file__).resolve().parent
 DYNAMIC_IMPORT = "import_module"
+DYNAMIC_IMPORT_EXEMPT = frozenset({"discovery.py"})
 MINIMUM_SOURCES = 5
 
 
@@ -87,11 +88,24 @@ def test_only_declared_and_stdlib_imports() -> None:
 
 
 def test_no_dynamic_imports_at_all() -> None:
-    """``import_module`` has no legitimate use here and would bypass the scan."""
+    """``import_module`` has no legitimate use outside ``discovery.py``.
+
+    Every other module has no reason to build an import target at runtime, so
+    the call is forbidden there outright — a stronger guarantee than the
+    literal-argument scan in :func:`_dynamic_imports` could offer on its own,
+    since that scan cannot see a computed argument.
+
+    ``discovery.py`` is the sole, deliberate exception: ``discover_specs``
+    walks a host's subpackages and imports whichever of them define a specs
+    module, and that module's dotted name is not known until the walk runs,
+    so it cannot be a literal. The exemption is scoped to that one file by
+    name — a dynamic import appearing in any other module still fails this
+    test, which is what keeps the exemption from silently becoming blanket.
+    """
     offenders = [
         path.name
         for path in _sources()
-        if DYNAMIC_IMPORT in path.read_text()
+        if path.name not in DYNAMIC_IMPORT_EXEMPT and DYNAMIC_IMPORT in path.read_text()
     ]
     assert not offenders, f"dynamic import machinery found in: {offenders}"
 

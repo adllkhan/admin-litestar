@@ -4,10 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from admin_litestar import Admin, AdminConfig
 from litestar import Litestar
 from litestar.stores.memory import MemoryStore
-
-from admin_litestar import Admin, AdminConfig
 
 from .test_spec import SECRET, WIDGET
 
@@ -67,17 +66,28 @@ class RecordingAudit:
         request: Any = None,
         extra: dict[str, Any] | None = None,
     ) -> None:
-        self.entries.append(
-            {"actor": actor_id, "action": action, "subject": subject,
-             "pk": subject_pk, "extra": extra}
-        )
+        self.entries.append({
+            "actor": actor_id,
+            "action": action,
+            "subject": subject,
+            "pk": subject_pk,
+            "extra": extra,
+        })
+
+
+class _PlaceholderSession:
+    """A database-session stand-in offering the one method ``Admin`` calls."""
+
+    async def commit(self) -> None:
+        """Do nothing: there is no real transaction to commit."""
+        return
 
 
 class NullSession:
     """Async context manager yielding a placeholder database session."""
 
-    async def __aenter__(self) -> object:
-        return object()
+    async def __aenter__(self) -> _PlaceholderSession:
+        return _PlaceholderSession()
 
     async def __aexit__(self, *_exc: object) -> None:
         return None
@@ -91,12 +101,16 @@ def build_admin(
     """Build a configured Admin over the throwaway specs."""
     shared = cache or FakeCache()
     return Admin(
-        config=AdminConfig(path="/admin", static_path="/admin-static"),
+        # secure_cookies=False: the test suite runs over plain HTTP, and a
+        # real deployment gets True (the default) unless it opts out the
+        # same way, for the same reason.
+        config=AdminConfig(path="/admin", secure_cookies=False),
         specs=[WIDGET, SECRET],
         auth=auth or FakeAuth(),
         audit=audit or RecordingAudit(),
         cache=lambda _request: shared,
         session_factory=NullSession,
+        csrf_secret=SECRET_KEY,
     )
 
 
@@ -104,8 +118,7 @@ def build_app(admin: Admin | None = None) -> Litestar:
     """Build a Litestar app hosting the admin, as a real consumer would."""
     built = admin or build_admin()
     return Litestar(
-        route_handlers=[built.router(), built.static_router()],
+        route_handlers=[built.router()],
         template_config=built.template_config(),
         middleware=[built.session_config(MemoryStore()).middleware],
-        csrf_config=built.csrf_config(SECRET_KEY),
     )

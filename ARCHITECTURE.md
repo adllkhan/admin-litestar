@@ -17,6 +17,7 @@ admin-litestar/              distribution name — hyphens, per PEP 503 normalis
 │       ├── constants.py     every literal in the package
 │       ├── protocols.py     what a host implements
 │       ├── spec.py          ModelSpec, Registry
+│       ├── discovery.py     discover_specs — imports a host's hand-written specs.py files
 │       ├── queries.py       statement builders — where the column boundary is enforced
 │       ├── render.py        cell formatting, request-shape helpers
 │       ├── export.py        streaming CSV
@@ -61,6 +62,11 @@ while the assertion proves the *files shipped*. Different failures.
      │                      export.py
      ├──► auth.py       ──► protocols.py
      └──► templates/ static/
+
+  discovery.py ──► spec.py          (called by the host directly, before Admin exists)
+     │             constants.py
+     ▼
+  a host's own subpackages, each an optional specs.py it wrote
 ```
 
 Rules that hold, and must keep holding:
@@ -71,6 +77,12 @@ Rules that hold, and must keep holding:
   magic value appears at a call site.
 - **`spec.py` knows nothing about Litestar.** Data plus validation over SQLAlchemy models,
   which is why `ModelSpec` is testable without an app.
+- **`discovery.py` is the one module permitted dynamic imports.** `discover_specs` builds
+  an import target from a subpackage name found by walking the filesystem at runtime, which
+  is exactly the capability every other module forgoes. `tests/test_boundary.py` names the
+  exemption to this one file; a dynamic import appearing anywhere else still fails that
+  test. Discovery only imports modules a host already wrote — it infers nothing about a
+  model, so it does not reintroduce the guessing this package exists to replace.
 - **`queries.py` knows nothing about HTTP.** It returns `Select` objects, which is why the
   column boundary can be tested by compiling SQL rather than by making requests.
 - **`admin.py` is the only module that assembles.** If a change makes another module reach
@@ -89,6 +101,11 @@ Each substantive promise is enforced in exactly one place, deliberately:
 | An export cannot contain a hidden column | `export.csv_rows` reads `spec.list_columns` | callers remembering to filter |
 | A capability typo fails loudly | `spec.ModelSpec.__post_init__` | the route appearing to work |
 | A revoked admin loses access in seconds | `auth.Revalidator` as `before_request` | session expiry |
+| A handler's writes actually persist | `Admin._provide_session` commits on success, rolls back on error | the host's own autocommit (it never sees this session) |
+| Static assets need no separate mount | `Admin.router()` nests a static-files router inside the one it returns | a host remembering a second `route_handlers` entry |
+| Session and CSRF cookies default to `Secure` | `AdminConfig.secure_cookies` (default `True`), read by both `session_config` and the CSRF middleware | a host thinking to pass `secure=True` itself |
+| CSRF, when enabled, only covers the admin | `CSRFMiddleware` attached to the gated router via `middleware=`, not `Litestar(csrf_config=...)` | an `exclude` pattern (which Litestar itself warns is unreliable for this) |
+| `session_factory` survives Litestar's `Router` deep-copy regardless of shape | `Admin._atomic_factory` wraps it in a plain closure before it is stored anywhere | a host remembering not to pass a bound method |
 | The package cannot reach into its host | `tests/test_boundary.py` allowlist | convention |
 | The public surface changes deliberately | `tests/test_api.py` | code review alone |
 

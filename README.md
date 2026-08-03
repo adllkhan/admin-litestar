@@ -66,24 +66,27 @@ class Auth:
 
 
 admin = Admin(
-    config=AdminConfig(path="/admin", static_path="/admin-static"),
+    config=AdminConfig(path="/admin"),
     specs=[INVOICE],
     auth=Auth(),
     audit=YourAuditSink(),
     cache=lambda request: your_cache,
     session_factory=async_sessionmaker(engine),
+    csrf_secret=SECRET,
 )
 
 app = Litestar(
-    route_handlers=[admin.router(), admin.static_router()],
+    route_handlers=[admin.router()],
     template_config=admin.template_config(),
     middleware=[admin.session_config(MemoryStore()).middleware],
-    csrf_config=admin.csrf_config(SECRET),
 )
 ```
 
 That yields a login page, a gated sidebar shell, and list / detail / delete / CSV-export
-routes for every spec that declares the matching capability.
+routes for every spec that declares the matching capability — all under the single router
+`admin.router()` returns. Static assets (the stylesheet, vendored HTMX) are served nested
+inside it, at `<path><static_path>` (`/admin/static` by default); there is nothing else to
+mount.
 
 ## The column boundary
 
@@ -128,6 +131,34 @@ column's Python type — dates and datetimes are parsed with `fromisoformat`. A 
 timezone-naive cursor is treated as absent and yields an unpaginated first page rather than
 an error, because cursors arrive from URLs and URLs get edited.
 
+## Supplying specs
+
+A host with many domain modules can pass its specs explicitly, as above, or keep a
+`specs.py` beside each domain module and let `discover_specs` find them:
+
+```python
+# billing/specs.py
+SPECS = (INVOICE, PAYMENT)
+
+# users/specs.py
+SPECS = (USER, ROLE)
+```
+
+```python
+from admin_litestar import Admin, discover_specs
+
+admin = Admin(config=..., specs=discover_specs("myapp"), auth=..., ...)
+```
+
+`discover_specs` walks `myapp`'s immediate subpackages and imports `<subpackage>.specs`
+from each one that has it — a subpackage without one is skipped, since a domain module may
+legitimately have no admin surface. It finds hand-written spec files; it does not generate
+specs from a model. Which columns are hidden, which are excluded, and what is searchable
+stay entirely your explicit declaration in each `specs.py` — guessing those from a schema
+is what this package exists to replace. A `specs.py` that exists but omits `SPECS`, or
+whose `SPECS` isn't an iterable of `ModelSpec`, raises immediately, naming the module. Pass
+`module_name=` / `attribute=` to use a different file or attribute name.
+
 ## Custom pages
 
 Generic tables cannot do everything. `CustomPage` lets a host contribute its own routes,
@@ -157,7 +188,14 @@ The package owns the mechanism; you own the policy.
 - Sessions are server-side over a store you supply. `AuthBackend.is_valid` is re-checked on
   every request, cached briefly, so revoking access takes effect in seconds rather than at
   session expiry.
-- CSRF protection covers every mutating route. Templates call `{{ csrf_token() }}`.
+- Session and CSRF cookies are marked `Secure` by default (`AdminConfig.secure_cookies`,
+  default `True`). Set it to `False` only for local development or tests served over plain
+  HTTP.
+- CSRF protection is opt-in: pass `csrf_secret=` to `Admin(...)` and every mutating route
+  under the admin's own path requires a token, via `CSRFMiddleware` attached to the admin's
+  router — not app-wide, so a host's own routes are unaffected. Leaving it unset (the
+  default) means no CSRF protection, matching a host that has deliberately declined it.
+  Templates call `{{ csrf_token() }}` either way.
 
 ## Design
 

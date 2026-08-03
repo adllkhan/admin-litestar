@@ -1,7 +1,9 @@
 """Package-wide defaults and literals."""
 
 DEFAULT_PATH = "/admin"
-DEFAULT_STATIC_PATH = "/admin-static"
+# Relative to DEFAULT_PATH, not an absolute mount — static assets nest under
+# the admin's own router rather than being mounted as a second one.
+DEFAULT_STATIC_PATH = "/static"
 
 SESSION_ACTOR_KEY = "admin_actor_id"
 EXCLUDE_FROM_AUTH_KEY = "exclude_from_auth"
@@ -45,3 +47,8 @@ EXPORT = "export"
 # ModelSpec.__post_init__ so a typo fails loudly instead of producing a model
 # whose routes silently do not exist.
 CAPABILITIES = frozenset({LIST, DETAIL, DELETE, EXPORT})
+
+# Defaults for discover_specs: the module a subpackage may define, and the
+# attribute expected inside it.
+DEFAULT_SPECS_MODULE_NAME = "specs"
+DEFAULT_SPECS_ATTRIBUTE = "SPECS"

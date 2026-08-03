@@ -104,10 +104,17 @@ def test_wrong_credentials_are_audited_as_a_failure() -> None:
 
 
 def test_static_assets_are_served() -> None:
-    """The vendored stylesheet and script are reachable."""
+    """The vendored stylesheet and script are reachable, nested under the admin path."""
     with TestClient(app=build_app()) as client:
-        assert client.get("/admin-static/admin.css").status_code == 200
-        assert client.get("/admin-static/htmx.min.js").status_code == 200
+        assert client.get("/admin/static/admin.css").status_code == 200
+        assert client.get("/admin/static/htmx.min.js").status_code == 200
+
+
+def test_static_assets_are_unguarded() -> None:
+    """An anonymous caller can still fetch the stylesheet: no auth required."""
+    with TestClient(app=build_app()) as client:
+        response = client.get("/admin/static/admin.css")
+    assert response.status_code == 200
 
 
 def test_template_globals_render_live_and_mark_the_active_nav_item() -> None:
@@ -133,7 +140,7 @@ def test_template_globals_render_live_and_mark_the_active_nav_item() -> None:
         response = client.get("/admin/m/widget")
 
     assert response.status_code == 200
-    assert "/admin-static/admin.css" in response.text
+    assert "/admin/static/admin.css" in response.text
     before_widgets = response.text.split("Widgets")[0][-120:]
     before_secrets = response.text.split("Secrets")[0][-120:]
     assert "aria-current" in before_widgets

@@ -17,6 +17,7 @@ EXPECTED_SURFACE = {
     "CustomPage",
     # Declaration
     "ModelSpec",
+    "discover_specs",
     "CAPABILITIES",
     "LIST",
     "DETAIL",

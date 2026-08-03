@@ -10,6 +10,7 @@ from importlib.metadata import PackageNotFoundError, version
 from .admin import Admin, AdminConfig
 from .auth import actor_of
 from .constants import CAPABILITIES, DELETE, DETAIL, EXPORT, LIST
+from .discovery import discover_specs
 from .export import csv_rows
 from .pages import CustomPage
 from .passwords import hash_password, verify_password
@@ -41,6 +42,7 @@ __all__ = [
     "count_statement",
     "csv_rows",
     "detail_statement",
+    "discover_specs",
     "hash_password",
     "is_htmx",
     "list_statement",

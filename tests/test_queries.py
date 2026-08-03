@@ -147,6 +147,33 @@ def test_datetime_ordered_spec_with_nonsense_cursor() -> None:
     assert "created_at <" not in sql
 
 
+def test_detail_statement_coerces_a_string_pk_to_the_column_type() -> None:
+    """A URL-supplied string pk is bound as the column's own type.
+
+    ``{pk:str}`` on the generic detail and delete routes means a real
+    request always hands this function a ``str``, even for an integer
+    primary key. PostgreSQL via asyncpg refuses an implicit
+    ``bigint = character varying`` comparison, so binding the pk as the
+    literal string it arrived as would 500 against a real database even
+    though the id plainly matches a row — this is what makes that work.
+    """
+    statement = detail_statement(WIDGET, "500")
+    compiled = statement.compile()
+    assert any(v == 500 and isinstance(v, int) for v in compiled.params.values())
+
+
+def test_detail_statement_passes_through_an_uncoercible_pk() -> None:
+    """A pk that cannot become the column's type is passed through as-is.
+
+    It cannot match any row of an integer-keyed table either way; passing
+    it through unchanged (rather than raising) leaves that to the query
+    returning no rows, the same as any other lookup miss.
+    """
+    statement = detail_statement(WIDGET, "not-a-number")
+    compiled = statement.compile()
+    assert "not-a-number" in compiled.params.values()
+
+
 def test_naive_datetime_cursor_against_aware_column_is_ignored() -> None:
     """A cursor with no UTC offset must not reach a tz-aware column.
 

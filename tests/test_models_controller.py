@@ -123,6 +123,10 @@ class _FakeSession:
         """Record the row as deleted."""
         self.deleted.append(row)
 
+    async def commit(self) -> None:
+        """No real transaction backs this stand-in; nothing to do."""
+        return None
+
 
 class _FakeSessionScope:
     """Async context manager yielding a pre-built fake session."""
@@ -146,18 +150,18 @@ def _build_dual_app(
     row = SimpleNamespace(id=1, name="Widget A")
     session = _FakeSession(row)
     admin = Admin(
-        config=AdminConfig(path="/admin", static_path="/admin-static"),
+        config=AdminConfig(path="/admin", secure_cookies=False),
         specs=[DUAL],
         auth=FakeAuth(),
         audit=audit or RecordingAudit(),
         cache=lambda _request: FakeCache(),
         session_factory=lambda: _FakeSessionScope(session),
+        csrf_secret=SECRET_KEY,
     )
     app = Litestar(
-        route_handlers=[admin.router(), admin.static_router()],
+        route_handlers=[admin.router()],
         template_config=admin.template_config(),
         middleware=[admin.session_config(MemoryStore()).middleware],
-        csrf_config=admin.csrf_config(SECRET_KEY),
     )
     return app, session
 
