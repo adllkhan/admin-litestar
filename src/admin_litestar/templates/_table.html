@@ -1,7 +1,27 @@
 <div class="wrap">
   <table class="tbl">
     <thead>
-      <tr>{% for column in spec.list_columns %}<th>{{ column }}</th>{% endfor %}</tr>
+      <tr>
+        {% if spec.selectable %}
+        <th class="row-select">
+          {# Selects every row on this page, which is all the page can speak for. #}
+          <input type="checkbox" aria-label="Select all on this page"
+                 onchange="for (const box of this.closest('table').querySelectorAll('.row-select input')) box.checked = this.checked; this.dispatchEvent(new Event('admin:selection', {bubbles: true}))">
+        </th>
+        {% endif %}
+        {% for column in spec.list_columns %}
+        {% set sorted_by = view.direction_of(column) %}
+        <th {% if sorted_by %}aria-sort="{{ "descending" if sorted_by == "desc" else "ascending" }}"{% endif %}>
+          {# A link, not a button: an order is a different view of the same data,
+             so it belongs in the URL and survives a reload or a share. #}
+          <a class="sort{% if sorted_by %} sort--on{% endif %}"
+             href="{{ view.sorted_by(column) }}">
+            {{ column }}<span class="sort-mark" aria-hidden="true">{% if sorted_by %}{{ "↓" if sorted_by == "desc" else "↑" }}{% endif %}</span>
+          </a>
+        </th>
+        {% endfor %}
+        {% if spec.row_actions %}<th class="row-actions"><span class="sr">Actions</span></th>{% endif %}
+      </tr>
     </thead>
     <tbody>{% include "_rows.html" %}</tbody>
   </table>

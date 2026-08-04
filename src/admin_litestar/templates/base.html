@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}admin{% endblock %}</title>
-  <link rel="stylesheet" href="{{ static_path }}/admin.css">
+  <link rel="stylesheet" href="{{ stylesheet_path }}">
   <script src="{{ static_path }}/htmx.min.js" defer></script>
 </head>
 <body>
@@ -12,5 +12,33 @@
     {% include "nav.html" %}
     <div class="main">{% block content %}{% endblock %}</div>
   </div>
+  {# Read once and cleared, so a message shows on exactly one page. An HTMX save
+     replaces this container out of band instead. #}
+  {% set flash = pop_flash(request) %}
+  <div id="toast">
+    {% if flash %}{% include "_toast.html" %}{% endif %}
+  </div>
+  {# Where a clicked row's dialog lands. Empty until one is asked for. #}
+  <div id="modal"></div>
+  <script>
+    // Escape, focus trapping and the blurred backdrop all belong to the <dialog>
+    // element. Two things it cannot do for itself are added here: opening when a
+    // fragment arrives, and closing on a click outside the content.
+    //
+    // Nothing removes the closed dialog afterwards, deliberately: a dialog
+    // without `open` is display:none, and the next row's swap replaces it. The
+    // `close` event would be the tidier hook, but it is not observable in every
+    // engine, and correctness should not rest on it.
+    document.addEventListener("htmx:afterSwap", (event) => {
+      if (event.target.id !== "modal") return;
+      const dialog = event.target.querySelector("dialog");
+      if (dialog && !dialog.open) dialog.showModal();
+    });
+    document.addEventListener("click", (event) => {
+      // A click landing on the dialog itself is a click on its backdrop: the
+      // content sits in children, so the element only receives what misses them.
+      if (event.target.matches("dialog.modal")) event.target.close();
+    });
+  </script>
 </body>
 </html>

@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from admin_litestar import Admin, AdminConfig
+from admin_litestar.constants import DEFAULT_THEME
 from litestar import Litestar
 from litestar.stores.memory import MemoryStore
 
@@ -97,6 +98,9 @@ def build_admin(
     auth: FakeAuth | None = None,
     audit: RecordingAudit | None = None,
     cache: FakeCache | None = None,
+    specs: list[Any] | None = None,
+    pages: list[Any] | None = None,
+    theme: str = DEFAULT_THEME,
 ) -> Admin:
     """Build a configured Admin over the throwaway specs."""
     shared = cache or FakeCache()
@@ -104,13 +108,14 @@ def build_admin(
         # secure_cookies=False: the test suite runs over plain HTTP, and a
         # real deployment gets True (the default) unless it opts out the
         # same way, for the same reason.
-        config=AdminConfig(path="/admin", secure_cookies=False),
-        specs=[WIDGET, SECRET],
+        config=AdminConfig(path="/admin", secure_cookies=False, theme=theme),
+        specs=specs if specs is not None else [WIDGET, SECRET],
         auth=auth or FakeAuth(),
         audit=audit or RecordingAudit(),
         cache=lambda _request: shared,
         session_factory=NullSession,
         csrf_secret=SECRET_KEY,
+        pages=pages or [],
     )
 
 

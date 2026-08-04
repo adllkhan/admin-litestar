@@ -1,0 +1,22 @@
+{# Shared rendering, taking explicit arguments rather than reading context, so a
+   caller cannot silently change what a cell means. #}
+
+{% macro cell(spec, row, column, labels, admin_path, registry) -%}
+{%- set relation = spec.relations.get(column) if spec.relations else none -%}
+{%- if relation is none -%}
+{{ render_value(row[column]) }}
+{%- else -%}
+{%- set key = row[column] -%}
+{%- set label = labels.get(column, {}).get(key) if labels else none -%}
+{%- set slug = relation.slug or registry.slug_for(relation.model) -%}
+{%- if key is none -%}
+{{ render_value(none) }}
+{%- elif slug -%}
+{# The related record is reachable, so the label links to it. #}
+<a href="{{ admin_path }}/m/{{ slug }}/{{ key }}">{{ render_value(label if label is not none else key) }}</a>
+{%- else -%}
+{# Its model is not registered, so there is nowhere to link: label only. #}
+{{ render_value(label if label is not none else key) }}
+{%- endif -%}
+{%- endif -%}
+{%- endmacro %}

@@ -1,13 +1,11 @@
 {% for row in rows %}
-<tr>
-  {% for column in spec.list_columns %}<td>{{ render_value(row[column]) }}</td>{% endfor %}
-</tr>
+{% include "_row.html" %}
 {% else %}
 {# ``after`` is set only on a paging request: an exhausted page is not an empty
    result set, so it must not claim there is nothing here. #}
 {% if not after %}
 <tr>
-  <td class="empty" colspan="{{ spec.list_columns | length }}">Nothing matches this view yet.</td>
+  <td class="empty" colspan="{{ spec.list_columns | length + (1 if spec.row_actions else 0) + (1 if spec.selectable else 0) }}">Nothing matches this view yet.</td>
 </tr>
 {% endif %}
 {% endfor %}
@@ -15,11 +13,9 @@
 {# The trigger row swaps *itself* for the next page plus a fresh trigger, so rows
    accumulate. Its URL carries the current search and filters: the next page has
    to be drawn from the same result set the reader is already looking at. #}
-{% set query = dict(filters | default({}), after=cursor) %}
-{% if search %}{% set _ = query.update(search=search) %}{% endif %}
 <tr class="more">
-  <td colspan="{{ spec.list_columns | length }}">
-    <button class="btn" hx-get="{{ page_url }}?{{ query | urlencode }}"
+  <td colspan="{{ spec.list_columns | length + (1 if spec.row_actions else 0) + (1 if spec.selectable else 0) }}">
+    <button class="btn" hx-get="{{ view.url(after=cursor) }}"
             hx-target="closest tr" hx-swap="outerHTML">Load more</button>
   </td>
 </tr>

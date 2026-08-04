@@ -6,19 +6,28 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from litestar import Router
+from litestar import Router, get
 from litestar.config.csrf import CSRFConfig
 from litestar.di import Provide
+from litestar.exceptions import NotAuthorizedException
 from litestar.middleware.base import DefineMiddleware
 from litestar.middleware.csrf import CSRFMiddleware
 from litestar.middleware.session.server_side import ServerSideSessionConfig
 from litestar.plugins.jinja import JinjaTemplateEngine
+from litestar.response import Redirect
 from litestar.static_files import create_static_files_router
 from litestar.template.config import TemplateConfig
 
-from .auth import Revalidator, require_actor
-from .constants import DEFAULT_PATH, DEFAULT_STATIC_PATH
+from .auth import Revalidator, require_actor, unauthorized_handler
+from .constants import (
+    DEFAULT_PATH,
+    DEFAULT_STATIC_PATH,
+    DEFAULT_THEME,
+    LIST,
+    THEMES,
+)
 from .controllers import ModelController, SessionController
+from .flash import pop_flash
 from .protocols import CacheBackend
 from .render import render_value
 from .spec import Registry
@@ -38,6 +47,32 @@ if TYPE_CHECKING:
 
 SESSION_STORE_NAME = "admin_sessions"
 CSRF_COOKIE = "admin_csrf"
+
+
+def _handler_paths(handler: Any) -> tuple[str, ...]:
+    """Return the paths a handler or controller declares, normalised.
+
+    A decorated handler carries a ``paths`` set; a ``Controller`` subclass
+    carries a single ``path`` string. Both shapes reach here, because both are
+    things a host puts in ``CustomPage.handlers``.
+    """
+    paths = getattr(handler, "paths", None)
+    if paths is None:
+        single = getattr(handler, "path", None)
+        paths = () if single is None else (single,)
+    return tuple(str(path).rstrip("/") for path in paths)
+
+
+def _owns_root(page: CustomPage) -> bool:
+    """Whether a host page answers at the admin root.
+
+    An empty slug says so by declaration; a handler mounted at ``/`` says so by
+    routing. Either way the admin must not add its own root route, or Litestar
+    would see two handlers for one path.
+    """
+    if page.slug.strip("/") == "":
+        return True
+    return any(path == "" for handler in page.handlers for path in _handler_paths(handler))
 
 
 class _HostStoreSessionConfig(ServerSideSessionConfig):
@@ -77,6 +112,10 @@ class AdminConfig:
             session cookie defeats the login gate, the lockout and
             revalidation together; set to ``False`` only for a local or test
             environment served over plain HTTP.
+        theme: Which shipped stylesheet the shell links — a key of
+            :data:`THEMES`, not a filename or a path. Both themes carry the
+            same class names, so a host's own templates work under either. A
+            host wanting neither overrides ``base.html`` and links its own.
     """
 
     path: str = DEFAULT_PATH
@@ -84,6 +123,13 @@ class AdminConfig:
     brand: str = "admin"
     template_dirs: tuple[Path, ...] = field(default=())
     secure_cookies: bool = True
+    theme: str = DEFAULT_THEME
+
+    def __post_init__(self) -> None:
+        """Reject an unknown theme by name, rather than serving a 404 link."""
+        if self.theme not in THEMES:
+            available = ", ".join(sorted(THEMES))
+            raise ValueError(f"unknown theme {self.theme!r}; available: {available}")
 
 
 class Admin:
@@ -176,9 +222,37 @@ class Admin:
         """Return the URL for a host-contributed page."""
         return f"{self.config.path}/{page.slug}"
 
+    def _index_handler(self) -> Any | None:
+        """Build the root redirect, or None when the root is already taken.
+
+        The login redirect and the brand link both point at the admin root, so
+        something has to answer there. A host landing page is the better answer
+        and wins whenever one exists; this fallback keeps the two paths from
+        leading to a 404 in every host that has not written one yet. With no
+        listable spec there is nowhere to send the caller, so nothing is
+        registered and the root 404s as before.
+        """
+        if any(_owns_root(page) for page in self.pages):
+            return None
+        listable = [spec for spec in self.registry.specs if spec.renders(LIST)]
+        if not listable:
+            return None
+        target = self._url_for_spec(listable[0])
+
+        @get("/", sync_to_thread=False)
+        def index() -> Redirect:
+            """Send the admin root to the first listable model."""
+            return Redirect(target)
+
+        return index
+
     def _static_url(self) -> str:
         """Return the full URL the admin's static assets are served at."""
         return f"{self.config.path}{self.config.static_path}"
+
+    def _stylesheet_url(self) -> str:
+        """Return the URL of the stylesheet the configured theme names."""
+        return f"{self._static_url()}/{THEMES[self.config.theme]}"
 
     async def _provide_session(self) -> AsyncIterator[Any]:
         """Open one database session per request for the ``admin_session`` name.
@@ -248,6 +322,9 @@ class Admin:
         handlers: list[Any] = [SessionController, ModelController]
         for page in self.pages:
             handlers.extend(page.handlers)
+        index = self._index_handler()
+        if index is not None:
+            handlers.append(index)
         gated = Router(
             path="",
             route_handlers=handlers,
@@ -262,6 +339,11 @@ class Admin:
             path=self.config.path,
             route_handlers=[gated, static],
             dependencies=self._dependencies(),
+            # Registered on the outer router so it covers the gated child, and
+            # scoped to this router so a host's own 401s keep their own shape.
+            exception_handlers={
+                NotAuthorizedException: unauthorized_handler(self.config.path)
+            },
         )
 
     def template_config(self) -> TemplateConfig:
@@ -278,6 +360,7 @@ class Admin:
         engine.engine.globals.update(
             admin_path=self.config.path,
             static_path=self._static_url(),
+            stylesheet_path=self._stylesheet_url(),
             brand=self.config.brand,
             registry=self.registry,
             groups=self.registry.groups,
@@ -285,6 +368,7 @@ class Admin:
             url_for_spec=self._url_for_spec,
             url_for_page=self._url_for_page,
             render_value=render_value,
+            pop_flash=pop_flash,
         )
         return TemplateConfig(instance=engine)
 

@@ -1,0 +1,18 @@
+{# Change over time. Two labels -- the ends -- rather than a number on every
+   point, and no grid: the shape is the message, the values are the caption. #}
+<figure class="chart chart--spark">
+  {% if title %}<figcaption class="chart-title">{{ title }}</figcaption>{% endif %}
+  {% if spark is none %}
+  <p class="chart-empty">Not enough history to draw a line.</p>
+  {% else %}
+  <svg class="spark" viewBox="0 0 100 28" preserveAspectRatio="none"
+       role="img" aria-label="{{ title or 'Trend' }}: from {{ render_value(spark.first) }} to {{ render_value(spark.last) }}, low {{ render_value(spark.low) }}, high {{ render_value(spark.high) }}">
+    <polyline points="{{ spark.points }}" />
+  </svg>
+  <div class="chart-ends">
+    <span class="chart-end">{{ render_value(spark.first) }}</span>
+    <span class="chart-scale">low {{ render_value(spark.low) }} · high {{ render_value(spark.high) }}</span>
+    <span class="chart-end">{{ render_value(spark.last) }}</span>
+  </div>
+  {% endif %}
+</figure>

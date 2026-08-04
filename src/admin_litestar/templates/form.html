@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}{% if pk is none %}New {{ spec.label }}{% else %}Edit {{ spec.label }} {{ pk }}{% endif %}{% endblock %}
+{% block content %}
+{% set hue = groups.index(spec.group) % 6 if spec.group in groups else 0 %}
+{% set action = page_url ~ "/new" if pk is none else page_url ~ "/" ~ pk ~ "/edit" %}
+<div class="page" style="--hue: var(--hue-{{ hue }})">
+  {# The same form without HTMX: a plain page, a plain POST, a redirect after. #}
+  <form method="post" action="{{ action }}">
+    <div class="bar">
+      <div class="head">
+        <div class="eyebrow"><span class="dot"></span>{{ spec.group }} · {{ spec.label }}</div>
+        <h1 class="title">
+          {% if pk is none %}New record{% else %}Edit <span class="pk">{{ pk }}</span>{% endif %}
+        </h1>
+      </div>
+      <div class="actions">
+        <button class="btn btn--primary" type="submit">Save</button>
+        <a class="btn" href="{% if pk is none %}{{ page_url }}{% else %}{{ page_url }}/{{ pk }}{% endif %}">Cancel</a>
+      </div>
+    </div>
+    {% if form_error %}
+    <div class="form-error">{{ form_error }}</div>
+    {% elif errors %}
+    <div class="form-error">{{ errors | length }} field{{ "s" if errors | length != 1 }} need attention</div>
+    {% endif %}
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <div class="fields fields--page">{% include "_fields.html" %}</div>
+  </form>
+</div>
+{% endblock %}

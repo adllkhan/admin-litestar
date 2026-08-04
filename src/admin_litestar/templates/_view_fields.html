@@ -1,0 +1,5 @@
+{# Everything about the view this form is not itself editing, so submitting it
+   keeps the sort, the search and the other filters. #}
+{% for key, value in view.hidden_fields(skip | default([])) %}
+<input type="hidden" name="{{ key }}" value="{{ value }}">
+{% endfor %}

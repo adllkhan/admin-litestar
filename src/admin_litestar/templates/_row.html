@@ -1,0 +1,50 @@
+{% import "_macros.html" as cells with context %}
+{# One table row. Carries an id so a saved record can replace it out of band,
+   and the request that opens it when the spec renders a detail route. #}
+<tr id="row-{{ spec.slug }}-{{ row[pk_name] }}"
+    {% if oob | default(false) %}hx-swap-oob="true"{% endif %}
+    {% if spec.renders("detail") %}class="clickable" tabindex="0" role="button"
+    aria-label="Open {{ spec.label }} {{ row[pk_name] }}"
+    hx-get="{{ page_url }}/{{ row[pk_name] }}"
+    hx-target="#modal"
+    hx-swap="innerHTML"
+    {# A click inside the actions cell is meant for the button, not for the row:
+       filtered here rather than with an inline stopPropagation. #}
+    hx-trigger="click[!event.target.closest('.row-actions, .row-select')], keyup[key=='Enter']"{% endif %}>
+  {% if spec.selectable %}
+  <td class="row-select">
+    {# Named pk, repeated: the bulk routes read a list of keys. #}
+    <input type="checkbox" name="pk" value="{{ row[pk_name] }}" form="bulk"
+           aria-label="Select {{ spec.label }} {{ row[pk_name] }}">
+  </td>
+  {% endif %}
+  {% for column in spec.list_columns %}<td>{{ cells.cell(spec, row, column, labels | default({}), admin_path, registry) }}</td>{% endfor %}
+  {% if spec.row_actions %}
+  <td class="row-actions">
+    {% for action in spec.row_actions %}
+    {% if action.method == "post" %}
+    {% if action.confirm %}
+    <details class="confirm confirm--inline">
+      <summary class="btn btn--small{% if action.danger %} btn--danger{% endif %}">{{ action.label }}</summary>
+      <div class="confirm-body">
+        <p class="confirm-text">{{ action.label }} record {{ row[pk_name] }}?</p>
+        <form method="post" action="{{ action.url_for(row[pk_name]) }}">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+          <button class="btn{% if action.danger %} btn--danger{% endif %}" type="submit">{{ action.label }}</button>
+        </form>
+      </div>
+    </details>
+    {% else %}
+    <form method="post" action="{{ action.url_for(row[pk_name]) }}">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+      <button class="btn btn--small{% if action.danger %} btn--danger{% endif %}" type="submit">{{ action.label }}</button>
+    </form>
+    {% endif %}
+    {% else %}
+    <a class="btn btn--small{% if action.danger %} btn--danger{% endif %}"
+       href="{{ action.url_for(row[pk_name]) }}">{{ action.label }}</a>
+    {% endif %}
+    {% endfor %}
+  </td>
+  {% endif %}
+</tr>

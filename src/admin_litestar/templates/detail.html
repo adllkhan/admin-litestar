@@ -8,22 +8,29 @@
       <div class="eyebrow"><span class="dot"></span>{{ spec.group }} · {{ spec.label }}</div>
       <h1 class="title">Record <span class="pk">{{ pk }}</span></h1>
     </div>
-    {% if spec.renders("delete") %}
+    {% if spec.renders("edit") or spec.renders("delete") %}
     <div class="actions">
-      <form method="post" action="{{ page_url }}/{{ pk }}/delete">
-        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-        <button class="btn btn--danger" type="submit">Delete</button>
-      </form>
+      {% if spec.renders("edit") %}
+      <a class="btn btn--primary" href="{{ page_url }}/{{ pk }}/edit">Edit</a>
+      {% endif %}
+      {% if spec.renders("delete") %}
+      {# Two steps, in the markup rather than in a confirm(): the summary opens
+         the confirmation, and only the inner button posts. Works with scripting
+         off, and can be styled like the rest of the admin. #}
+      <details class="confirm">
+        <summary class="btn btn--danger">Delete</summary>
+        <div class="confirm-body">
+          <p class="confirm-text">Delete record {{ pk }}? This cannot be undone.</p>
+          <form method="post" action="{{ page_url }}/{{ pk }}/delete">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn--danger" type="submit">Delete permanently</button>
+          </form>
+        </div>
+      </details>
+      {% endif %}
     </div>
     {% endif %}
   </div>
-  <div class="rows">
-    {% for column in spec.detail_columns %}
-    <div class="row">
-      <span class="label">{{ column }}</span>
-      <span class="mono">{{ render_value(row[column]) }}</span>
-    </div>
-    {% endfor %}
-  </div>
+  {% include "_detail_rows.html" %}
 </div>
 {% endblock %}

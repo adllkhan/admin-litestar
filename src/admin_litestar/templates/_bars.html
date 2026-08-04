@@ -1,0 +1,20 @@
+{# Magnitude across labelled categories. One hue: the label is already beside the
+   bar, so colour carries no identity it would have to encode legibly. #}
+<figure class="chart">
+  {% if title %}<figcaption class="chart-title">{{ title }}</figcaption>{% endif %}
+  {% if not bars %}
+  <p class="chart-empty">Nothing to show yet.</p>
+  {% else %}
+  <div class="chart-bars">
+    {% for bar in bars %}
+    <div class="chart-row">
+      <span class="chart-label">{{ bar.label }}</span>
+      <span class="chart-track">
+        <span class="chart-bar" style="width: {{ bar.percent }}%"></span>
+      </span>
+      <span class="chart-value">{{ render_value(bar.value) }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</figure>

@@ -9,23 +9,125 @@
       <h1 class="title">{{ spec.label }}</h1>
     </div>
     <div class="actions">
+      {% if spec.searchable or spec.exact_searchable or text_filters %}
       <form method="get" class="filters">
         {% if spec.searchable or spec.exact_searchable %}
-        <input name="search" value="{{ search or '' }}" placeholder="Search">
+        {# Submits on change, which covers Enter and leaving the field, so the
+           toolbar needs no button of its own. #}
+        <input name="search" value="{{ search or '' }}" placeholder="Search"
+               onchange="this.form.requestSubmit()">
         {% endif %}
-        {% for name in spec.filters %}
-        <input name="{{ name }}" value="{{ filters.get(name, '') }}" placeholder="{{ name }}">
+        {% for name in text_filters %}
+        {# Too many distinct values to show, so typing is the honest control. #}
+        <input name="{{ name }}" value="{{ (view.selected(name) | first) or '' }}"
+               placeholder="{{ name }}" onchange="this.form.requestSubmit()">
         {% endfor %}
-        <button class="btn" type="submit">Filter</button>
+        {% with skip = ["search"] + text_filters | list %}{% include "_view_fields.html" %}{% endwith %}
+        {# Hidden, not absent: a browser will not implicitly submit a form with
+           several text fields and no submit button, and this keeps the toolbar
+           working with scripting off. #}
+        <button class="sr" type="submit">Search</button>
       </form>
+      {% endif %}
+      {% if spec.renders("create") %}
+      <a class="btn btn--primary" href="{{ page_url }}/new"
+         hx-get="{{ page_url }}/new" hx-target="#modal" hx-swap="innerHTML">New</a>
+      {% endif %}
       {% if spec.renders("export") %}
-      <a class="btn" href="{{ page_url }}/export">Export CSV</a>
+      <a class="btn" href="{{ view.export_url() }}">Export CSV</a>
       {% endif %}
     </div>
   </div>
+  {% if facets or range_filters %}
+  <div class="filter-bar">
+    {% for name, choices in facets.items() %}
+    {% set chosen = view.selected(name) %}
+    <div class="filter-set">
+      <span class="filter-name">{{ name }}</span>
+      {# A segmented control: one object, the selected values filled, each segment
+         carrying how many rows it would leave. Several may be on at once, which
+         widens the filter rather than replacing it. #}
+      <div class="segmented" role="group" aria-label="Filter by {{ name }}">
+        <a class="segment{% if not chosen %} segment--on{% endif %}"
+           {% if not chosen %}aria-current="true"{% endif %}
+           href="{{ view.cleared(name) }}">
+          All
+          <span class="segment-count">{{ choices | sum(attribute="count") }}</span>
+        </a>
+        {% for choice in choices %}
+        {% set on = view.has(name, choice.value) %}
+        {% if choice.empty and not on %}
+        {# Nothing to select: text rather than a link, so it holds its place in the
+           control without offering an empty result. #}
+        <span class="segment segment--empty" aria-disabled="true">
+          {{ choice.value }}
+          <span class="segment-count">0</span>
+        </span>
+        {% else %}
+        <a class="segment{% if on %} segment--on{% endif %}"
+           {% if on %}aria-current="true"{% endif %}
+           href="{{ view.toggled(name, choice.value) }}">
+          {{ choice.value }}
+          <span class="segment-count">{{ choice.count }}</span>
+        </a>
+        {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+    {% for name in range_filters %}
+    {% set bounds = view.bounds_of(name) %}
+    {% set matched = namespace(found=false) %}
+    <div class="filter-set">
+      <span class="filter-name">{{ name }}</span>
+      {# The same segmented language as the value filters, because it answers the
+         same kind of question. The spans a reader actually asks for are one click;
+         anything else opens the two fields. #}
+      <div class="segmented" role="group" aria-label="Filter by {{ name }}">
+        <a class="segment{% if not bounds %} segment--on{% endif %}"
+           {% if not bounds %}aria-current="true"{% endif %}
+           href="{{ view.cleared(name) }}">All</a>
+        {% for preset in range_presets %}
+        {% if preset.matches(bounds) %}{% set matched.found = true %}{% endif %}
+        <a class="segment{% if preset.matches(bounds) %} segment--on{% endif %}"
+           {% if preset.matches(bounds) %}aria-current="true"{% endif %}
+           href="{{ view.ranged(name, preset.bounds) }}">{{ preset.label }}</a>
+        {% endfor %}
+      </div>
+      {# Open already when the current range is not one of the presets, so a
+         custom span is never hidden behind a closed disclosure. #}
+      <details class="range" {% if bounds and not matched.found %}open{% endif %}>
+        <summary class="segment segment--custom{% if bounds and not matched.found %} segment--on{% endif %}">
+          Custom
+        </summary>
+        <form method="get" class="range-body">
+          <label class="range-field">
+            <span class="range-label">from</span>
+            <input type="date" name="{{ name }}_from"
+                   value="{{ bounds.start if bounds else '' }}"
+                   onchange="this.form.requestSubmit()">
+          </label>
+          <label class="range-field">
+            <span class="range-label">to</span>
+            <input type="date" name="{{ name }}_to"
+                   value="{{ bounds.end if bounds else '' }}"
+                   onchange="this.form.requestSubmit()">
+          </label>
+          {% with skip = [name] %}{% include "_view_fields.html" %}{% endwith %}
+          <button class="btn btn--small" type="submit">Apply</button>
+          {% if bounds %}
+          <a class="filter-clear" href="{{ view.cleared(name) }}">clear</a>
+          {% endif %}
+        </form>
+      </details>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
   {% if spec.exact_searchable %}
   <div class="label note">{{ spec.exact_searchable | join(", ") }} match in full only</div>
   {% endif %}
+  {% if spec.selectable %}{% include "_bulk.html" %}{% endif %}
   <div class="pad">{% include "_table.html" %}</div>
 </div>
 {% endblock %}

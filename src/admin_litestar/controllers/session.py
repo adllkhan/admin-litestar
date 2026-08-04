@@ -7,11 +7,11 @@ from typing import Annotated, Any
 from litestar import Controller, Request, get, post
 from litestar.di import NamedDependency
 from litestar.enums import RequestEncodingType
-from litestar.params import Body
+from litestar.params import Body, FromQuery
 from litestar.response import Redirect, Template
 from litestar.status_codes import HTTP_303_SEE_OTHER
 
-from ..auth import clear_failures, is_locked, register_failure
+from ..auth import clear_failures, is_locked, register_failure, safe_next
 from ..constants import (
     ACTION_LOGIN,
     ACTION_LOGIN_FAILED,
@@ -31,9 +31,16 @@ class SessionController(Controller):
     """Renders the login form and manages the admin session."""
 
     @get("/login", exclude_from_auth=True)
-    async def form(self) -> Template:
-        """Render the login form."""
-        return Template(LOGIN_TEMPLATE, context={"error": None})
+    async def form(
+        self,
+        admin_path: NamedDependency[str],
+        next: FromQuery[str | None] = None,  # noqa: A002 - the query name is `next`
+    ) -> Template:
+        """Render the login form, remembering where the caller was headed."""
+        return Template(
+            LOGIN_TEMPLATE,
+            context={"error": None, "next": safe_next(next, admin_path)},
+        )
 
     @post("/login", exclude_from_auth=True, status_code=HTTP_303_SEE_OTHER)
     async def submit(
@@ -49,9 +56,15 @@ class SessionController(Controller):
         """Validate credentials, open a session, and audit the outcome."""
         username = str(data.get("username", ""))
         password = str(data.get("password", ""))
+        # Validated, not trusted: this arrives in the form body, so it is only
+        # honoured when it points inside this admin.
+        destination = safe_next(str(data.get("next", "")) or None, admin_path)
         ip = request.client.host if request.client else UNKNOWN_IP
         if await is_locked(admin_cache, username, ip):
-            return Template(LOGIN_TEMPLATE, context={"error": LOCKED_MESSAGE})
+            return Template(
+                LOGIN_TEMPLATE,
+                context={"error": LOCKED_MESSAGE, "next": destination},
+            )
         user = await admin_auth.authenticate(admin_session, username, password)
         if user is None:
             await register_failure(admin_cache, username, ip)
@@ -59,14 +72,17 @@ class SessionController(Controller):
                 admin_session, None, ACTION_LOGIN_FAILED,
                 request=request, extra={"username": username},
             )
-            return Template(LOGIN_TEMPLATE, context={"error": INVALID_MESSAGE})
+            return Template(
+                LOGIN_TEMPLATE,
+                context={"error": INVALID_MESSAGE, "next": destination},
+            )
         await clear_failures(admin_cache, username, ip)
         actor_id = admin_auth.identity_of(user)
         request.session[SESSION_ACTOR_KEY] = actor_id
         await admin_audit.write(
             admin_session, actor_id, ACTION_LOGIN, request=request
         )
-        return Redirect(f"{admin_path}/")
+        return Redirect(destination or f"{admin_path}/")
 
     @post("/logout", status_code=HTTP_303_SEE_OTHER)
     async def logout(

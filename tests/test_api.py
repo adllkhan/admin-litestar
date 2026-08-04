@@ -17,11 +17,16 @@ EXPECTED_SURFACE = {
     "CustomPage",
     # Declaration
     "ModelSpec",
+    "Relation",
+    "RowAction",
     "discover_specs",
+    "BulkAction",
     "CAPABILITIES",
     "LIST",
     "DETAIL",
+    "CREATE",
     "DELETE",
+    "EDIT",
     "EXPORT",
     # Protocols a host implements
     "AuthBackend",
@@ -86,4 +91,6 @@ def test_version_matches_the_distribution_metadata() -> None:
 
 def test_capability_constants_are_the_complete_set() -> None:
     """The exported names and the validated set cannot disagree."""
-    assert al.CAPABILITIES == frozenset({al.LIST, al.DETAIL, al.DELETE, al.EXPORT})
+    assert al.CAPABILITIES == frozenset(
+        {al.LIST, al.DETAIL, al.DELETE, al.EXPORT, al.EDIT, al.CREATE}
+    )

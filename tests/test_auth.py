@@ -2,7 +2,9 @@
 
 import pytest
 from litestar.exceptions import NotAuthorizedException
+from litestar.testing import TestClient
 
+from admin_litestar.admin import CSRF_COOKIE
 from admin_litestar.auth import (
     Revalidator,
     actor_of,
@@ -10,8 +12,11 @@ from admin_litestar.auth import (
     is_locked,
     register_failure,
     require_actor,
+    safe_next,
 )
 from admin_litestar.constants import LOGIN_MAX_ATTEMPTS, SESSION_ACTOR_KEY
+
+from .hostapp import build_app
 
 
 class _Cache:
@@ -157,3 +162,139 @@ class _NullSession:
 
     async def __aexit__(self, *_exc: object) -> None:
         return None
+
+
+def test_a_browser_hitting_a_gated_page_is_sent_to_the_login_form() -> None:
+    """A page request must land on the form, not on a bare 401.
+
+    The guard raises ``NotAuthorizedException`` for every caller alike, which
+    Litestar renders as a 401 body -- so an admin opening the bookmarked root in
+    a browser saw an error page and no way to log in. Observed: the request is
+    redirected to the login form, carrying where it was headed.
+    """
+    with TestClient(app=build_app()) as client:
+        response = client.get(
+            "/admin/m/widget", headers={"accept": "text/html"}, follow_redirects=False
+        )
+    assert response.status_code == 303
+    assert response.headers["location"] == "/admin/login?next=/admin/m/widget"
+
+
+def test_the_login_redirect_keeps_the_query_string() -> None:
+    """A deep link with search and filters returns to the same view."""
+    with TestClient(app=build_app()) as client:
+        response = client.get(
+            "/admin/m/widget?search=one&kind=alpha",
+            headers={"accept": "text/html"},
+            follow_redirects=False,
+        )
+    assert response.headers["location"] == (
+        "/admin/login?next=/admin/m/widget%3Fsearch%3Done%26kind%3Dalpha"
+    )
+
+
+def test_an_htmx_request_gets_a_redirect_header_not_a_body() -> None:
+    """A 401 body would be swapped into the page as though it were content."""
+    with TestClient(app=build_app()) as client:
+        response = client.get(
+            "/admin/m/widget",
+            headers={"accept": "text/html", "HX-Request": "true"},
+            follow_redirects=False,
+        )
+    assert response.status_code == 401
+    assert response.headers["HX-Redirect"] == "/admin/login"
+    assert response.text == ""
+
+
+def test_a_non_browser_caller_still_gets_a_plain_401() -> None:
+    """Scripts and probes keep the status they expect."""
+    with TestClient(app=build_app()) as client:
+        response = client.get(
+            "/admin/m/widget",
+            headers={"accept": "application/json"},
+            follow_redirects=False,
+        )
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Unauthorized"
+
+
+def test_the_login_form_carries_a_validated_next_field() -> None:
+    """The destination survives the round trip through the form."""
+    with TestClient(app=build_app()) as client:
+        good = client.get("/admin/login?next=/admin/m/widget")
+        assert 'name="next" value="/admin/m/widget"' in good.text
+
+        hostile = client.get("/admin/login?next=https://evil.example/steal")
+        assert 'name="next"' not in hostile.text
+
+
+@pytest.mark.parametrize(
+    "candidate",
+    [
+        "https://evil.example/steal",
+        "//evil.example/steal",
+        "/etc/passwd",
+        "/admin/../../outside",
+        "\\\\evil.example",
+        "/adminlookalike/page",
+        "/admin/login",
+    ],
+)
+def test_login_refuses_to_redirect_outside_the_admin(candidate: str) -> None:
+    """A post-login destination is only ever a path inside this admin.
+
+    ``next`` arrives from a query string, so anyone who can get an admin to
+    click a link can propose a destination. Anything not under the admin's mount
+    point -- absolute, protocol-relative, backslash-obfuscated, or a sibling
+    path that merely starts with the same characters -- falls back to the root.
+    ``/admin/login`` itself is refused because it would loop.
+    """
+    with TestClient(app=build_app()) as client:
+        client.get("/admin/login")
+        response = client.post(
+            "/admin/login",
+            data={
+                "username": "root",
+                "password": "hunter2",
+                "next": candidate,
+                "_csrf_token": client.cookies.get(CSRF_COOKIE, ""),
+            },
+            follow_redirects=False,
+        )
+    assert response.status_code in (302, 303)
+    assert response.headers["location"] == "/admin/"
+
+
+def test_login_honours_a_destination_inside_the_admin() -> None:
+    """A legitimate ``next`` is where the caller lands."""
+    with TestClient(app=build_app()) as client:
+        client.get("/admin/login")
+        response = client.post(
+            "/admin/login",
+            data={
+                "username": "root",
+                "password": "hunter2",
+                "next": "/admin/m/widget?search=one",
+                "_csrf_token": client.cookies.get(CSRF_COOKIE, ""),
+            },
+            follow_redirects=False,
+        )
+    assert response.headers["location"] == "/admin/m/widget?search=one"
+
+
+@pytest.mark.parametrize(
+    "candidate", ["/admin/%2e%2e/outside", "/admin/%2E%2E%2Foutside"]
+)
+def test_encoded_dot_segments_are_refused_too(candidate: str) -> None:
+    """An encoded traversal normalises the same way an unencoded one does."""
+    assert safe_next(candidate, "/admin") is None
+
+
+def test_safe_next_accepts_the_admin_root_and_its_children() -> None:
+    """The allowed shapes, stated positively."""
+    assert safe_next("/admin", "/admin") == "/admin"
+    assert safe_next("/admin/", "/admin") == "/admin/"
+    assert safe_next("/admin/m/widget", "/admin") == "/admin/m/widget"
+    assert safe_next("/admin/m/widget?a=1", "/admin") == "/admin/m/widget?a=1"
+    assert safe_next(None, "/admin") is None
+    assert safe_next("", "/admin") is None

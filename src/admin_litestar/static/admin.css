@@ -102,6 +102,15 @@ a { color: var(--hue, var(--accent)); }
 /* ---- nav rail ---- */
 
 .side {
+  display: flex;
+  flex-direction: column;
+  /* Sticky and viewport-tall, so the footer pinned with margin-top:auto lands at
+     the bottom of the *screen* rather than the bottom of a long page. */
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  height: 100vh;
+  overflow-y: auto;
   width: var(--side-width);
   flex: 0 0 var(--side-width);
   background: var(--rail);
@@ -139,7 +148,10 @@ a { color: var(--hue, var(--accent)); }
   box-shadow: inset 2px 0 0 0 var(--hue, var(--accent));
 }
 
-.nav-foot { border-top: 1px solid var(--border); padding-top: 14px; }
+/* Pushed to the foot of the rail rather than trailing the last group, so it
+   sits in the same place whether a host registers two models or twenty. */
+.nav-foot { margin-top: auto; padding-top: 16px; }
+.nav-foot .btn { width: 100%; }
 
 .main { flex: 1; min-width: 0; }
 
@@ -280,6 +292,9 @@ a { color: var(--hue, var(--accent)); }
 .tbl tbody tr:nth-child(even) { background: var(--raised); }
 .tbl tbody tr:hover td { background: var(--bg); color: var(--hue, var(--accent)); }
 .tbl tbody tr:last-child td { border-bottom: 0; }
+
+.tbl tr.clickable { cursor: pointer; }
+.tbl tr.clickable:focus-visible { outline-offset: -2px; }
 
 /* The paging trigger lives in the table body so appended rows land in order;
    it opts out of the data-cell and row-hover treatments. */
@@ -476,7 +491,16 @@ input:focus, select:focus {
     border-bottom: 1px solid var(--border);
   }
 
-  .side { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; padding: 12px; }
+  .side {
+    position: static;
+    height: auto;
+    overflow: visible;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 14px;
+    padding: 12px;
+  }
   .brand { padding: 0 8px 0 2px; }
   .nav-group, .nav-foot { margin: 0; display: flex; align-items: center; gap: 6px; }
   .nav-label { padding: 0; }
@@ -500,6 +524,400 @@ input:focus, select:focus {
   .row .label { width: auto; flex: none; }
 }
 
+/* ---- record dialog ---- */
+
+/* Opened from a clicked row. The backdrop blurs the page behind it, so the list
+   stays as context without competing for attention. */
+.modal {
+  width: min(680px, calc(100vw - 32px));
+  max-height: min(84vh, 900px);
+  padding: 0;
+  overflow: auto;
+  color: var(--fg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--hue, var(--accent));
+  border-radius: var(--r);
+  box-shadow: var(--shadow);
+}
+
+.modal::backdrop {
+  background: rgb(6 8 12 / 55%);
+  backdrop-filter: blur(6px);
+}
+
+.modal-head {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+}
+
+.modal-head .title { font-size: 20px; }
+.modal .rows { padding: 8px 20px 20px; max-width: none; }
+
+@media (max-width: 860px) {
+  .modal { width: calc(100vw - 20px); }
+  .modal-head { flex-direction: column; align-items: stretch; }
+  .modal .rows { padding-left: 16px; padding-right: 16px; }
+}
+
+/* ---- forms ---- */
+
+.fields { display: grid; gap: 14px; padding: 16px 20px 22px; }
+.fields--page { max-width: 620px; padding: 20px 24px 28px; }
+
+.field { display: grid; gap: 5px; }
+.field .label { color: var(--muted); }
+.field .req { color: var(--danger); }
+
+.field input, .field select, .field textarea { width: 100%; font-family: var(--mono); }
+.field input[type="checkbox"] { width: auto; }
+.field textarea { resize: vertical; font-size: 13px; }
+
+.field--invalid input,
+.field--invalid select,
+.field--invalid textarea { border-color: var(--danger); }
+
+.field-error { font-size: 11px; color: var(--danger); }
+
+.form-error {
+  margin: 0 20px;
+  padding: 9px 12px;
+  font-size: 12px;
+  color: var(--danger);
+  background: var(--raised);
+  border: 1px solid var(--danger);
+  border-radius: var(--r-sm);
+}
+
+/* ---- notifications ---- */
+
+/* Fixed to the corner, and out of the way of pointer events once faded. The
+   fade is CSS rather than script, so nothing has to schedule a removal. */
+
+#toast {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 20;
+  display: grid;
+  gap: 8px;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  font-size: 13px;
+  background: var(--surface);
+  color: var(--fg);
+  border: 1px solid var(--border-strong);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow);
+  animation: toast-in 160ms ease-out, toast-out 400ms ease-in 5s forwards;
+}
+
+.toast--danger { border-left-color: var(--danger); }
+
+.toast-close {
+  font: inherit;
+  font-size: 15px;
+  line-height: 1;
+  padding: 0 2px;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.toast-close:hover { color: var(--fg); }
+
+@keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }
+@keyframes toast-out { to { opacity: 0; visibility: hidden; } }
+
+/* ---- destructive confirmation ---- */
+
+/* A <details> rather than confirm(): styleable, and it still works with no
+   scripting at all. The summary is the button; only the inner one posts. */
+.confirm { position: relative; }
+.confirm summary { list-style: none; cursor: pointer; }
+.confirm summary::-webkit-details-marker { display: none; }
+
+.confirm-body {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 10;
+  width: 260px;
+  padding: 14px;
+  background: var(--surface);
+  border: 1px solid var(--danger);
+  border-radius: var(--r);
+  box-shadow: var(--shadow);
+}
+
+.confirm-text { margin: 0 0 12px; font-size: 13px; }
+.confirm-body .btn { width: 100%; }
+
+/* ---- sortable headers ---- */
+
+.tbl th a.sort {
+  display: inline-flex;
+  gap: 6px;
+  align-items: baseline;
+  color: inherit;
+  text-decoration: none;
+}
+
+.tbl th a.sort:hover { color: var(--fg); }
+.tbl th a.sort--on { color: var(--hue, var(--accent)); }
+.sort-mark { font-size: 10px; }
+
+/* ---- row actions ---- */
+
+.row-actions { white-space: nowrap; text-align: right; }
+.row-actions form { display: inline-block; }
+.tbl td.row-actions { font-family: var(--sans); }
+
+.btn--small { font-size: 11px; padding: 4px 9px; }
+
+/* Inline in a cell, so the confirmation opens over the rows below it. */
+.confirm--inline { display: inline-block; }
+
+/* Visually hidden, still read aloud. */
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ---- charts ---- */
+
+.charts {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  padding: 4px 24px 24px;
+}
+
+/* Drawn in one hue, with the category written beside each bar: nothing here
+   depends on telling two colours apart. */
+.chart {
+  margin: 0;
+  padding: 16px 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+}
+
+.chart-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 14px;
+}
+
+.chart-bars { display: grid; gap: 9px; }
+
+.chart-row {
+  display: grid;
+  grid-template-columns: minmax(80px, 22%) 1fr auto;
+  gap: 12px;
+  align-items: center;
+  font-size: 13px;
+}
+
+.chart-label { color: var(--fg); overflow-wrap: anywhere; }
+
+/* The track is the recessive part; the bar is the only saturated mark. */
+.chart-track { background: var(--raised); border-radius: 3px; height: 10px; }
+
+.chart-bar {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+  background: var(--hue, var(--accent));
+  border-radius: 0 3px 3px 0;
+}
+
+.chart-value { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.chart-empty { margin: 0; font-size: 13px; color: var(--muted); }
+
+.spark {
+  display: block;
+  width: 100%;
+  height: 56px;
+  overflow: visible;
+}
+
+.spark polyline {
+  fill: none;
+  stroke: var(--hue, var(--accent));
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.chart-ends {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.chart-end { font-family: var(--mono); color: var(--fg); }
+
+/* ---- filters ---- */
+
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 24px;
+  padding: 12px 24px 0;
+}
+
+.filter-set { display: flex; align-items: center; gap: 10px; }
+
+.filter-name {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* One object, not a row of buttons: the segments share edges, and only the
+   outer corners are rounded. */
+.segmented {
+  display: flex;
+  align-items: stretch;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+}
+
+.segment {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--muted);
+  text-decoration: none;
+  white-space: nowrap;
+  /* The divider belongs to the segment, so it cannot double up at the ends. */
+  border-left: 1px solid var(--border-strong);
+}
+
+.segment:first-child { border-left: 0; }
+.segment:hover { color: var(--fg); background: var(--raised); }
+
+.segment--on {
+  color: var(--bg);
+  background: var(--hue, var(--accent));
+  font-weight: 600;
+}
+
+.segment--empty { color: var(--muted); opacity: .45; cursor: default; }
+
+/* Recessive: the value is the label, the count is an aside. */
+.segment-count {
+  font-family: var(--mono);
+  font-size: 11px;
+  opacity: .65;
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+}
+
+/* ---- bulk selection ---- */
+
+/* Only present while something is selected: an empty toolbar is a control that
+   does nothing, taking up the space of one that does. */
+.bulk {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 24px 0;
+  padding: 10px 14px;
+  background: var(--raised);
+  border: 1px solid var(--hue, var(--accent));
+  border-radius: var(--r-sm);
+}
+
+.bulk[hidden] { display: none; }
+.bulk-count { font-size: 12px; font-weight: 600; color: var(--fg); margin-right: 4px; }
+
+.row-select { width: 1%; white-space: nowrap; }
+.tbl td.row-select, .tbl th.row-select { padding-right: 0; }
+
+/* ---- date range ---- */
+
+/* The disclosure sits in the same bar as the preset segments and looks like one
+   of them, because it is the same question asked more precisely. */
+.range { position: relative; }
+
+.range summary {
+  list-style: none;
+  cursor: pointer;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+}
+
+.range summary::-webkit-details-marker { display: none; }
+.range[open] summary { color: var(--fg); border-color: var(--hue, var(--accent)); }
+
+.range-body {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 6px);
+  z-index: 10;
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  padding: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r);
+  box-shadow: var(--shadow);
+}
+
+.range-field { display: grid; gap: 4px; }
+
+.range-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* Native picker, admin's typography: the control is the browser's, the type is
+   not. */
+.range-field input[type="date"] {
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 6px 8px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
+  /* With the fade suppressed the toast would never leave, so it stays
+     visible and dismissible rather than animating out. */
+  .toast { opacity: 1; visibility: visible; }
 }

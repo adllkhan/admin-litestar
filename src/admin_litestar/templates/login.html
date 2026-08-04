@@ -8,6 +8,7 @@
   </div>
   {% if error %}<div class="chip chip--danger">{{ error }}</div>{% endif %}
   <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+  {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
   <input name="username" placeholder="Username" autocomplete="username" required>
   <input name="password" type="password" placeholder="Password"
          autocomplete="current-password" required>

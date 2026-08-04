@@ -3,6 +3,302 @@
 Notable changes to `admin-litestar`. Versions follow semantic versioning, with the caveat
 that `0.x` carries no stability promise — see the note at the end of 0.1.0.
 
+## 0.4.0 — 2026-08-04
+
+### Added — bulk actions
+
+Rows grow checkboxes wherever something can act on a selection: a declared
+`BulkAction`, or the `DELETE` capability. The toolbar appears only while something is
+selected and says how many, because an empty toolbar is a control that does nothing
+taking the space of one that does. The checkboxes are real form fields tied to the
+form by `id` rather than by nesting — a form cannot wrap a `tbody`, and wrapping the
+table would break the row-click behaviour.
+
+`Delete selected` ships built in. It loads and deletes one record at a time and writes
+one audit entry per record rather than one for the batch: a trail answering "who
+deleted invoice 4821" must not depend on reconstructing which batch it was in, and a
+bulk `DELETE` statement would skip the model's own cascades and events. A record that
+has already gone is skipped rather than failing the rest, and an empty selection
+deletes nothing.
+
+Host bulk actions post the selection as repeated `pk` fields, so a handler reads a
+list. A path containing `{pk}` is rejected at construction — that is a `RowAction`.
+
+### Added — filters hold several values, and dates are ranges
+
+A filter matched one value. Selecting a second now widens it rather than replacing it:
+`?status=paid&status=pending` is `IN`, verified against the data as 46 + 47 = 93 rows.
+Clicking a selected segment removes it.
+
+A date or timestamp column is asked "between" instead, as a pair of date fields, since
+a year of distinct days was never a list anyone could use. Either end may be left
+open. An end given as a date covers that whole day — compared as `<=` midnight it
+would silently exclude every row in the day it names, which reads as missing data
+rather than an off-by-one. Bounds get their own coercion rather than the cursor rule:
+a cursor is a value this admin produced, so a naive datetime against an aware column
+means something went wrong and is discarded, while a bound is a date a person typed
+and the only useful reading is UTC. A malformed bound is ignored rather than failing
+the page.
+
+### Changed — one object builds every URL on a list page
+
+Sort headers, filter segments, the range forms, the paging trigger and the export link
+were each assembling query strings in Jinja. That worked while a filter held one value
+and stopped being honest the moment one could hold several. All of them now come from a
+single `ListView`, which also means they cannot disagree about what is being shown. A
+form that owns part of the view carries the rest as hidden fields, since a GET form
+replaces the whole query string: searching would otherwise clear the filters, and
+setting a date range would clear the sort.
+
+
+### Added — sortable columns
+
+Ordering was one column per spec, hardcoded descending, while every theme drew
+headers that looked clickable. Clicking one now sorts by it and clicking again
+flips it. The order lives in the URL, so it survives a reload and a shared link,
+and both `Load more` and `Export CSV` carry it.
+
+A sort is validated against `list_columns` rather than trusted: a hidden column
+named in a query string falls back to the spec's `order_by`. Keyset paging follows
+the sorted column, and the order is now tie-broken by the primary key — sorting by
+a non-unique column left rows arbitrarily ordered within a value, and a cursor over
+an unstable order both skips and repeats rows.
+
+### Fixed — export ignored the view it was launched from
+
+`Export CSV` sits in the same toolbar as the search box and the filters, and sent
+none of them to the query: a filtered view downloaded the whole table, up to the
+10 000-row export cap. Nobody checks a download against the page, so this was wrong
+quietly. The export now takes the same search, filters and ordering as the list, and
+the audit entry records them beside the row count rather than only how many rows
+left the building.
+
+### Changed — filters are a segmented control with counts, and the Filter button is gone
+
+A filter was a text box, which asks the reader to guess at spellings that exist. It
+is now a segmented control: one connected object per filter, `All` plus a segment per
+value, the active one filled, and each segment carrying how many rows it holds.
+
+The counts are real facet counts — taken with the search and every *other* filter
+applied, and without the column's own — so a number says what clicking that segment
+would give you rather than what the table holds in total. Clicking the active segment
+clears it. Each segment is a URL carrying the rest of the view, so filtering never
+drops the search or the sort, and a filtered list can be shared.
+
+The segment set is fixed by what the column holds overall, and only the counts
+respond to the view. A first pass had the counts decide the segments too, which meant
+picking one filter made another filter's options vanish — a control that reshapes
+itself under the reader. A value the current view excludes now shows `0` and renders
+as text rather than a link, since selecting it would leave nothing. Ordering is by
+value, never by count, for the same reason.
+
+An enumerated column offers its own declared values; anything else is asked what it
+holds. A column with more than `FILTER_CHOICE_LIMIT` (40) values stays a text field
+rather than showing a truncated set that hides the rest.
+
+The `Filter` button is gone with the dropdown that needed it: the search field
+submits on change, and a visually hidden submit button keeps implicit submission —
+which a browser withholds from a form with several text fields and no submit — and
+no-script use working.
+
+### Added — foreign keys read and edit as records
+
+A key column rendered as an integer, and the edit form asked for one by hand.
+`ModelSpec.relations` maps a column to a `Relation`, after which the cell reads as
+the related record's label, links to it, and the form offers a list of choices.
+
+Labels are resolved in one query per related model per page rather than one per row.
+The link target comes from whichever spec registers that model, and `Relation.slug`
+settles it where two specs expose the same one — an ambiguity a test caught by
+registering the same model twice. A target with more than `RELATION_OPTION_LIMIT`
+(200) rows is not enumerated at all: a truncated select hides records with no way to
+pick them, so the field falls back to accepting a key.
+
+### Added — row action buttons
+
+`RowAction` puts host-defined buttons on every row: the admin renders them, formats
+the record's key into the path, and carries a CSRF token on anything that posts,
+while the route belongs to the host. A click inside the actions cell does not also
+open the record's dialog — filtered in the trigger rather than with an inline
+`stopPropagation`. `confirm=True` asks first, in markup, so it is styleable and
+works with scripting off. A path without `{pk}`, or a method other than get or post,
+is rejected at construction.
+
+### Added — charts, without a charting library
+
+`admin_litestar.charts` computes the geometry and two templates place it:
+`_bars.html` for magnitude across labelled categories, `_spark.html` for change over
+time. No build step, no CDN, no runtime fetch — the same promise as the rest of the
+package.
+
+Both draw in a single hue, which is a decision rather than a limitation. Running the
+palette validator on this admin's six group hues as a categorical series palette
+fails: the azure and violet steps differ by ΔE 1.3 under deuteranopia and 8.6 with
+full colour vision. That is fine for nav accents, which never sit adjacent, and
+wrong for marks that do — and a bar whose category is written beside it needs no
+second encoding anyway.
+
+The edge cases are answered rather than left to render oddly: `bars()` refuses
+negative values instead of drawing them as short positives, all-zero data draws no
+bars rather than dividing by zero, `spark()` returns `None` below two points so the
+template can say why, and a flat series is drawn down the middle because a constant
+is not a zero. The sparkline states its shape in `aria-label`.
+
+### Changed — the sidebar footer is just the button
+
+The session label and the rule above it are gone; the logout control sits alone at
+the bottom of the rail.
+
+
+### Added — records can be edited and created, not only read and deleted
+
+The admin had no write path but delete. A spec could declare four capabilities, none of which
+let anyone change a value: `EDIT` and `CREATE` did not exist, there was no form, no update
+route, and no notion of which columns were writable. Answering "why can't I modify data" with
+"it was never built" is the honest version, so it is built here.
+
+`EDIT` adds a form for an existing record and `CREATE` a blank one, each gated and 404ing when
+the spec does not declare it. Editable means every column in `detail_columns` except the
+primary key — a rewritable key would let one form address a different record — so `EDIT` grants
+exactly what the detail view already shows. There is deliberately no second allow-list:
+`hidden_columns` and `excluded_columns` remain the way to keep a column out of reach, and a
+column added to `detail_columns` later becomes writable, which is worth knowing.
+
+The form lives in the dialog a row opens: `Edit` swaps the body in place, and saving returns
+the record along with an out-of-band copy of its own table row, so the list behind the dialog
+stops showing the old value without a reload. Without scripting the same URLs are ordinary
+pages answered with a redirect. New `forms.py` is the single place a submitted string becomes
+a column value: each column is classified from its type (integer, number, checkbox, date,
+datetime-local, select for an enum, textarea for unbounded text) and coerced back, with a
+timezone-aware column reading a naive `datetime-local` value as UTC because the control cannot
+send an offset. Only editable columns are read, so a field the form never offered cannot be
+written by adding it to the request body. Rejected input returns the form with a per-field
+message and the values that were typed, at 200 rather than 422, because HTMX does not swap an
+error status and a form nobody can see is worse than an unfussy status code.
+
+### Fixed — a constraint violation on write was a 500
+
+Found while creating a record against SQLite: the insert failed its NOT NULL check and the
+admin answered with `Internal Server Error`. A duplicate unique value or a broken foreign key
+would have done the same. A constraint violation is a statement about the submitted values, so
+`IntegrityError` is now caught at an explicit flush, the session rolled back — after a failed
+flush it can accept nothing else, and the commit `Admin` performs on return would fail the same
+way — and the form comes back carrying what the database objected to.
+
+### Added — a write reports itself
+
+`Record 141 created`, `Record 9 saved`, `Record 3 deleted`. A redirect carries the message in
+the session and clears it on render, so it shows on exactly one page; an HTMX save has no
+navigation to carry it, so it arrives out-of-band beside the record. The message fades after
+five seconds through CSS rather than a scheduled removal, and under
+`prefers-reduced-motion` — where the fade is suppressed — it stays visible and dismissible
+instead of never leaving.
+
+
+### Added — a row opens its record in a dialog
+
+List rows were inert cells. A spec could declare `DETAIL` and render a perfectly good detail
+page that nothing linked to, reachable only by typing its URL — so the obvious gesture, click
+the row you are reading, did nothing.
+
+A row now fetches its own record into a dialog over the blurred list. It is focusable and
+Enter does what a click does, so the gesture is not mouse-only, and rows stay inert for a spec
+that declares no detail route. The dialog is a real `<dialog>`, which is what makes Escape,
+focus trapping and the blurred `::backdrop` free rather than scripted, and `Close` is a
+`method="dialog"` submit that needs no JavaScript at all. The script that remains does the two
+things the element cannot do for itself: open the dialog when the fragment lands, and close it
+on a click outside the content. It deliberately does not remove the closed dialog afterwards —
+a dialog without `open` is `display: none`, the next row's swap replaces it, and the tidier
+`close` hook turned out not to be observable in every engine.
+
+The detail route answers an `HX-Request` with `_modal.html` and everything else with the full
+page, so a bookmark or a shared link still opens a page of its own, and `Open page` inside the
+dialog goes there. Both render the new `_detail_rows.html`, so one record cannot read
+differently in the two places.
+
+The list projection now includes the primary key even when `list_columns` omits it: a table
+showing a name and hiding the id could not otherwise name the record its own row links to.
+
+### Changed — the nav rail is fixed, and its footer sits at the foot
+
+The rail scrolled away with the page, and the logout control trailed whatever the last nav
+group happened to be, so its position depended on how many models a host registered. The rail
+is now sticky and viewport-tall, and the footer is pushed to the bottom of it with the session
+label centred above a full-width control. On a long list this is also what keeps logout on
+screen at all: pinning the footer inside a rail that stretched to the content height would
+have parked it thousands of pixels below the fold.
+
+### Added — two more themes, and `AdminConfig.theme` to choose one
+
+`schematic` draws the admin as a technical drawing rather than a dashboard. One typeface,
+monospace, sized and tracked rather than swapped. No cards, no shadows, no radius, no zebra:
+structure is carried by rules, by corner marks framing the table as a drawn field, and by a
+graph-paper ground. The page header is a title block — the cartouche a drawing carries in its
+corner. Nav entries run to dotted leaders like an index. Detail rows are dimension lines,
+label to value across a leader with the value ruled underneath. Status chips are bracketed
+rather than pilled. Dark is the same drawing on drafting film: lines lighten, ground darkens.
+
+`black` is strict monochrome, and soft about it. No accent colour anywhere: what would be a
+hue elsewhere is a step in a neutral ramp, and what would be a highlight is a lift — each
+level of emphasis is the next surface up plus a hairline, never an inversion. Nothing is pure
+black or pure white, so hairlines stay visible and long sessions stay comfortable. Strict is
+the grid rather than the volume: one 4px spacing rhythm, one radius pair, one ramp, sentence
+case, no weight above 600. Danger is dashed, since a monochrome scheme has no red to borrow
+and a hatch shouts. It declares `color-scheme: dark` and deliberately ignores the OS light
+preference, because a monochrome scheme inverted for daylight is a different design rather
+than the same one lightened; a test asserts that, so it reads as a choice.
+
+`classic` is the 0.3.0 look and stays the default, so nothing changes for an existing host.
+All three stylesheets carry the same class names and all three define the six group hues, so
+a host-authored page written against one renders under the others — asserted per theme in
+`tests/test_themes.py`, along with reduced-motion support. `AdminConfig(theme=...)`
+takes a key of `admin_litestar.constants.THEMES`, not a filename; an unknown name raises at
+construction rather than serving a dead stylesheet link. `base.html` now links
+`stylesheet_path` instead of a hard-coded `admin.css` — a host that overrode `base.html`
+before this keeps working, and keeps its hard-coded link.
+
+### Fixed — an anonymous visitor got a bare 401 instead of the login form
+
+`require_actor` raises `NotAuthorizedException` for every caller alike, and nothing
+translated that into something a browser can act on. Opening any admin URL without a session
+— the bookmarked root, a deep link someone shared — produced a 401 error page with no form
+on it and no way to reach one. Present since 0.1.0.
+
+The admin's router now carries an exception handler for `NotAuthorizedException` that answers
+according to what the caller can use. A page request (`GET`/`HEAD` asking for `text/html`)
+gets `303` to the login form with the requested URL, query string included, in a `next`
+parameter. An HTMX request gets `401` with an `HX-Redirect` header, because a 401 body would
+otherwise be swapped into the page as content. Everything else keeps the plain JSON `401` it
+expects, so scripts and probes are unaffected. The handler is scoped to the admin's own
+router, leaving a host's other 401s alone.
+
+`next` is carried through the form and honoured after a successful login, but validated
+rather than trusted, since it arrives from a URL anyone can hand an admin: only a path under
+the admin's own mount point is accepted. Absolute and protocol-relative URLs, `://`,
+backslashes, dot segments (`/admin/../../elsewhere`, which passes a prefix test but resolves
+outside the admin in the browser that receives the header) and their percent-encoded forms,
+sibling paths that merely share a prefix (`/adminlookalike`), and the login and logout paths
+themselves are all refused in favour of the admin root.
+
+### Fixed — every login landed on a 404 unless the host wrote a landing page
+
+`SessionController` redirects to `{admin_path}/` after a successful login, and `nav.html`
+points the brand link at the same URL — but the package never registered a route there. The
+only thing that could answer was a host-contributed page, which `CustomPage`'s docstring
+mentioned in passing and the README never asked for. A host that mounted the admin and
+followed the README exactly therefore sent every fresh login, and every brand-link click, to
+a 404. Present since 0.1.0.
+
+The admin now registers a root route that redirects to the first spec declaring `LIST`,
+so the root works with no host effort. A custom page still wins whenever one answers there:
+ownership is read from the handler's path as well as from an empty `slug`, so a landing page
+that keeps its nav label while mounting at `/` takes the root without colliding with the
+redirect — two handlers on one path is a Litestar startup error, not a silent shadowing.
+With no listable spec and no custom page there is nowhere to send the caller, so nothing is
+registered and the root stays a 404. The route sits inside the gated router, so an anonymous
+caller gets 401 rather than a redirect naming a model. README documents the whole behaviour
+under "The admin root".
+
 ## 0.3.0 — 2026-08-03
 
 ### Fixed — `Load more` never loaded anything (0.1.0, 0.2.0)

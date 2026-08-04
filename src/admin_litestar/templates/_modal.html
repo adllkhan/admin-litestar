@@ -1,0 +1,49 @@
+{% set hue = groups.index(spec.group) % 6 if spec.group in groups else 0 %}
+{# A real <dialog>: Escape, focus trapping and ::backdrop come from the element
+   rather than from script. base.html opens it once this lands in #modal. #}
+<dialog class="modal" style="--hue: var(--hue-{{ hue }})"
+        aria-label="{{ spec.label }} {{ pk }}">
+  <div class="modal-head">
+    <div class="head">
+      <div class="eyebrow"><span class="dot"></span>{{ spec.group }} · {{ spec.label }}</div>
+      <h2 class="title">Record <span class="pk">{{ pk }}</span></h2>
+    </div>
+    <div class="actions">
+      {% if spec.renders("edit") %}
+      <a class="btn btn--primary" href="{{ page_url }}/{{ pk }}/edit"
+         hx-get="{{ page_url }}/{{ pk }}/edit" hx-target="#modal" hx-swap="innerHTML">Edit</a>
+      {% endif %}
+      <a class="btn" href="{{ page_url }}/{{ pk }}">Open page</a>
+      {% if spec.renders("delete") %}
+      {# Two steps, in the markup rather than in a confirm(): the summary opens
+         the confirmation, and only the inner button posts. Works with scripting
+         off, and can be styled like the rest of the admin. #}
+      <details class="confirm">
+        <summary class="btn btn--danger">Delete</summary>
+        <div class="confirm-body">
+          <p class="confirm-text">Delete record {{ pk }}? This cannot be undone.</p>
+          <form method="post" action="{{ page_url }}/{{ pk }}/delete">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn--danger" type="submit">Delete permanently</button>
+          </form>
+        </div>
+      </details>
+      {% endif %}
+      {# method="dialog" closes without script; the close event clears #modal. #}
+      <form method="dialog">
+        <button class="btn modal-close" type="submit" aria-label="Close">Close</button>
+      </form>
+    </div>
+  </div>
+  {% include "_detail_rows.html" %}
+</dialog>
+{% if flash is defined and flash %}
+{# Out of band: this response swaps into #modal, and the toast lives outside it. #}
+<div id="toast" hx-swap-oob="true">{% include "_toast.html" %}</div>
+{% endif %}
+{% if oob_row is defined %}
+{# Out of band, so the row behind the dialog stops showing what was just changed. #}
+<table hidden><tbody>
+  {% with row = oob_row, oob = true %}{% include "_row.html" %}{% endwith %}
+</tbody></table>
+{% endif %}

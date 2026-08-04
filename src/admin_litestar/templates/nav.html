@@ -21,7 +21,6 @@
     </div>
   {% endif %}
   <div class="nav-foot">
-    <div class="label nav-label">Session</div>
     <form method="post" action="{{ admin_path }}/logout">
       <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
       <button class="btn" type="submit">Log out</button>

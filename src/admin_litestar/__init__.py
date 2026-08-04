@@ -9,7 +9,7 @@ from importlib.metadata import PackageNotFoundError, version
 
 from .admin import Admin, AdminConfig
 from .auth import actor_of
-from .constants import CAPABILITIES, DELETE, DETAIL, EXPORT, LIST
+from .constants import CAPABILITIES, CREATE, DELETE, DETAIL, EDIT, EXPORT, LIST
 from .discovery import discover_specs
 from .export import csv_rows
 from .pages import CustomPage
@@ -17,7 +17,7 @@ from .passwords import hash_password, verify_password
 from .protocols import AuditSink, AuthBackend, CacheBackend
 from .queries import count_statement, detail_statement, list_statement
 from .render import is_htmx, project, render_value
-from .spec import ModelSpec
+from .spec import BulkAction, ModelSpec, Relation, RowAction
 
 try:
     __version__ = version("admin-litestar")
@@ -29,14 +29,19 @@ __all__ = [
     "AdminConfig",
     "AuditSink",
     "AuthBackend",
+    "BulkAction",
     "CAPABILITIES",
+    "CREATE",
     "CacheBackend",
     "CustomPage",
     "DELETE",
     "DETAIL",
+    "EDIT",
     "EXPORT",
     "LIST",
     "ModelSpec",
+    "Relation",
+    "RowAction",
     "__version__",
     "actor_of",
     "count_statement",

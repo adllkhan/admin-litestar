@@ -1,0 +1,7 @@
+{# One notification. Assertive, because it reports something that already
+   happened and the reader may have moved focus on. #}
+<div class="toast toast--{{ flash.kind }}" role="status" aria-live="polite">
+  <span class="toast-text">{{ flash.message }}</span>
+  <button class="toast-close" type="button" aria-label="Dismiss"
+          onclick="this.closest('.toast').remove()">×</button>
+</div>

@@ -1,0 +1,985 @@
+/* The schematic theme: the admin as a technical drawing.
+ *
+ * One typeface, monospace, sized and tracked rather than swapped. No cards, no
+ * shadows, no rounded corners, no zebra -- structure is carried by rules and by
+ * the corner marks that frame a drawn field. The page header is a title block:
+ * the cartouche a drawing carries in its corner, naming the sheet and its
+ * revision. Detail rows are dimension lines, label to value across a dotted
+ * leader. Group hues survive from the classic theme, cooled towards ink.
+ *
+ * Same class names as admin.css, so host templates work under either.
+ */
+:root {
+  --paper: #e7ecf1;
+  --sheet: #f4f7f9;
+  --field: #dde5ec;
+  --rule: #9db0c0;
+  --rule-strong: #55697a;
+  --muted: #5b6d7d;
+  --fg: #10202c;
+  --accent: #0d6f96;
+  --danger: #a83a22;
+  --grid: rgb(85 105 122 / 8%);
+
+  --hue-0: #0d6f96;
+  --hue-1: #1c7a63;
+  --hue-2: #3f5bad;
+  --hue-3: #7a4a99;
+  --hue-4: #a85a1f;
+  --hue-5: #4a7222;
+
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+
+  --side-width: 232px;
+  --list-width: 296px;
+  --tick: 9px;
+}
+
+/* Dark is the same drawing on drafting film: lines lighten, ground darkens. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0a1218;
+    --sheet: #0d1a22;
+    --field: #101f28;
+    --rule: #2b4553;
+    --rule-strong: #6f93a6;
+    --muted: #7e97a6;
+    --fg: #d3e6f0;
+    --accent: #4fc1e3;
+    --danger: #e07a5f;
+    --grid: rgb(120 175 200 / 7%);
+
+    --hue-0: #4fc1e3;
+    --hue-1: #4cc2a3;
+    --hue-2: #7f9df0;
+    --hue-3: #b992e0;
+    --hue-4: #e0a95c;
+    --hue-5: #a8cc6a;
+  }
+}
+
+:root[data-theme="dark"] {
+  --paper: #0a1218;
+  --sheet: #0d1a22;
+  --field: #101f28;
+  --rule: #2b4553;
+  --rule-strong: #6f93a6;
+  --muted: #7e97a6;
+  --fg: #d3e6f0;
+  --accent: #4fc1e3;
+  --danger: #e07a5f;
+  --grid: rgb(120 175 200 / 7%);
+
+  --hue-0: #4fc1e3;
+  --hue-1: #4cc2a3;
+  --hue-2: #7f9df0;
+  --hue-3: #b992e0;
+  --hue-4: #e0a95c;
+  --hue-5: #a8cc6a;
+}
+
+* { box-sizing: border-box; }
+
+/* Graph paper, ruled at 22px and drawn behind everything. */
+body {
+  margin: 0;
+  color: var(--fg);
+  background:
+    repeating-linear-gradient(to right, var(--grid) 0 1px, transparent 1px 22px),
+    repeating-linear-gradient(to bottom, var(--grid) 0 1px, transparent 1px 22px),
+    var(--paper);
+  font: 13px/1.5 var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+a { color: var(--hue, var(--accent)); text-underline-offset: 3px; }
+
+:focus-visible {
+  outline: 1px dashed var(--hue, var(--accent));
+  outline-offset: 3px;
+}
+
+.shell { display: flex; min-height: 100vh; }
+
+/* ---- index column: a drawing's parts list ---- */
+
+.side {
+  display: flex;
+  flex-direction: column;
+  /* Sticky and viewport-tall, so the footer pinned with margin-top:auto lands at
+     the bottom of the *screen* rather than the bottom of a long page. */
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  height: 100vh;
+  overflow-y: auto;
+  width: var(--side-width);
+  flex: 0 0 var(--side-width);
+  padding: 20px 18px;
+  background: var(--sheet);
+  border-right: 1px solid var(--rule-strong);
+}
+
+.brand {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--rule-strong);
+  margin-bottom: 20px;
+}
+
+.nav-group { margin-bottom: 20px; }
+
+.side .nav-label {
+  color: var(--hue, var(--muted));
+  padding: 0 0 5px;
+  border-bottom: 1px solid var(--rule);
+  margin-bottom: 5px;
+}
+
+/* Dotted leaders, as an index entry runs to its page number. */
+.side a {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 4px 0;
+  color: var(--fg);
+  text-decoration: none;
+}
+
+.side a::after {
+  content: "";
+  flex: 1;
+  border-bottom: 1px dotted var(--rule);
+  transform: translateY(-3px);
+}
+
+.side a:hover { color: var(--hue, var(--accent)); }
+
+.side a[aria-current="page"] { color: var(--hue, var(--accent)); font-weight: 700; }
+
+/* The mark against the current item is drawn, not filled. */
+.side a[aria-current="page"]::before {
+  content: "▸";
+  margin-left: -12px;
+  margin-right: 2px;
+}
+
+/* Pushed to the foot of the rail rather than trailing the last group, so it
+   sits in the same place whether a host registers two models or twenty. */
+.nav-foot { margin-top: auto; padding-top: 16px; }
+.nav-foot .btn { width: 100%; }
+
+.main { flex: 1; min-width: 0; }
+.page { min-width: 0; }
+.pad { padding: 22px 26px; }
+
+/* ---- title block ---- */
+
+.bar {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  margin: 22px 26px 0;
+  background: var(--sheet);
+  border: 2px solid var(--rule-strong);
+}
+
+.head { min-width: 0; padding: 10px 16px; flex: 1; }
+
+.eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 10px;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--rule);
+  margin-bottom: 7px;
+}
+
+/* A drawn square, not a dot: filled marks belong to the classic theme. */
+.dot {
+  width: 7px;
+  height: 7px;
+  border: 2px solid var(--hue, var(--accent));
+  background: transparent;
+}
+
+.title {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  line-height: 1.1;
+}
+
+.title .pk { font-weight: 400; letter-spacing: .04em; color: var(--muted); }
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 16px;
+  border-left: 2px solid var(--rule-strong);
+}
+
+.filters { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+.note {
+  padding: 10px 26px 0;
+  color: var(--muted);
+}
+
+/* ---- drawn field: corner marks instead of a border box ---- */
+
+.wrap {
+  position: relative;
+  overflow-x: auto;
+  padding: 10px;
+  background: var(--sheet);
+  border: 1px solid var(--rule);
+}
+
+.wrap::before,
+.wrap::after {
+  content: "";
+  position: absolute;
+  width: var(--tick);
+  height: var(--tick);
+  border: 2px solid var(--rule-strong);
+  pointer-events: none;
+}
+
+.wrap::before { top: -1px; left: -1px; border-width: 2px 0 0 2px; }
+.wrap::after { bottom: -1px; right: -1px; border-width: 0 2px 2px 0; }
+
+.tbl { width: 100%; border-collapse: collapse; }
+
+.tbl th {
+  text-align: left;
+  padding: 7px 14px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+  border-bottom: 1px solid var(--rule-strong);
+}
+
+/* Column rules, as a drawing divides a schedule. */
+.tbl th + th,
+.tbl td + td { border-left: 1px dotted var(--rule); }
+
+.tbl td {
+  padding: 7px 14px;
+  white-space: nowrap;
+  border-bottom: 1px dotted var(--rule);
+}
+
+.tbl tbody tr:last-child td { border-bottom: 0; }
+
+.tbl tr.clickable { cursor: pointer; }
+.tbl tr.clickable:focus-visible { outline-offset: -2px; }
+
+.tbl tbody tr:hover td {
+  background: var(--field);
+  color: var(--hue, var(--accent));
+}
+
+.tbl td.empty {
+  padding: 30px 14px;
+  text-align: center;
+  color: var(--muted);
+  letter-spacing: .08em;
+}
+
+.tbl tr.more td {
+  padding: 14px;
+  border-bottom: 0;
+  border-left: 0;
+  background: transparent;
+}
+
+.tbl tbody tr.more:hover td { background: transparent; color: inherit; }
+
+/* ---- annotations and controls ---- */
+
+/* Bracketed, the way a drawing annotates a value. */
+.chip {
+  display: inline-block;
+  font-size: 11px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.chip::before { content: "["; margin-right: 4px; }
+.chip::after { content: "]"; margin-left: 4px; }
+
+.chip--on { color: var(--accent); }
+.chip--danger { color: var(--danger); }
+
+.btn {
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  padding: 6px 14px;
+  color: var(--fg);
+  background: transparent;
+  border: 1px solid var(--rule-strong);
+  border-radius: 0;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.btn:hover {
+  color: var(--paper);
+  background: var(--hue, var(--accent));
+  border-color: var(--hue, var(--accent));
+}
+
+.btn--primary {
+  color: var(--paper);
+  background: var(--hue, var(--accent));
+  border-color: var(--hue, var(--accent));
+}
+
+.btn--primary:hover { filter: brightness(1.12); }
+
+.btn--danger:hover { background: var(--danger); border-color: var(--danger); }
+
+/* Ruled fields, as on a form printed on the sheet: underline, no box. */
+input, select {
+  font: inherit;
+  font-size: 12px;
+  padding: 5px 2px;
+  color: var(--fg);
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--rule-strong);
+  border-radius: 0;
+}
+
+input::placeholder {
+  color: var(--muted);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  font-size: 11px;
+}
+
+input:focus, select:focus {
+  outline: 0;
+  border-bottom: 2px solid var(--hue, var(--accent));
+  padding-bottom: 4px;
+}
+
+/* ---- gauges ---- */
+
+.stats { display: flex; flex-wrap: wrap; gap: 16px; padding: 22px 26px; }
+
+.stat {
+  position: relative;
+  flex: 1 1 190px;
+  padding: 14px 16px;
+  background: var(--sheet);
+  border: 1px solid var(--rule);
+}
+
+.stat::after {
+  content: "";
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  width: var(--tick);
+  height: var(--tick);
+  border: 2px solid var(--hue, var(--accent));
+  border-width: 2px 2px 0 0;
+}
+
+.stat .label { color: var(--muted); }
+
+.stat b {
+  display: block;
+  margin-top: 10px;
+  font-size: 27px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  color: var(--hue, var(--accent));
+}
+
+.stats .stat:nth-child(6n + 1) { --hue: var(--hue-0); }
+.stats .stat:nth-child(6n + 2) { --hue: var(--hue-1); }
+.stats .stat:nth-child(6n + 3) { --hue: var(--hue-2); }
+.stats .stat:nth-child(6n + 4) { --hue: var(--hue-3); }
+.stats .stat:nth-child(6n + 5) { --hue: var(--hue-4); }
+.stats .stat:nth-child(6n + 6) { --hue: var(--hue-5); }
+
+.label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.mono { font-size: 13px; }
+
+/* ---- second pane, tabs ---- */
+
+.split { display: flex; min-height: 100vh; }
+
+.pane {
+  width: var(--list-width);
+  flex: 0 0 var(--list-width);
+  padding: 12px;
+  overflow-y: auto;
+  background: var(--sheet);
+  border-right: 1px solid var(--rule-strong);
+}
+
+.pane a {
+  display: block;
+  padding: 7px 10px;
+  color: var(--fg);
+  text-decoration: none;
+  border-bottom: 1px dotted var(--rule);
+}
+
+.pane a:hover { color: var(--hue, var(--accent)); }
+
+.pane a[aria-current="page"] {
+  color: var(--hue, var(--accent));
+  background: var(--field);
+  font-weight: 700;
+}
+
+.record { flex: 1; min-width: 0; padding: 22px 26px; }
+
+.tabs {
+  display: flex;
+  gap: 0;
+  margin: 22px 26px 0;
+  border-bottom: 1px solid var(--rule-strong);
+}
+
+.tabs a {
+  padding: 8px 16px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-decoration: none;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  margin-bottom: -1px;
+}
+
+.tabs a:hover { color: var(--fg); }
+
+.tabs a[aria-current="page"] {
+  color: var(--fg);
+  background: var(--sheet);
+  border-color: var(--rule-strong);
+}
+
+/* ---- dimension lines ---- */
+
+.rows { padding: 22px 26px; max-width: 860px; }
+
+.row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 9px 0;
+}
+
+.row .label { flex: 0 0 auto; width: 190px; }
+
+/* The leader between label and value, with a tick at the value end. */
+.row::before {
+  content: "";
+  order: 1;
+  flex: 1;
+  border-bottom: 1px dotted var(--rule);
+  transform: translateY(-4px);
+}
+
+.row .mono {
+  order: 2;
+  min-width: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  border-bottom: 1px solid var(--rule-strong);
+}
+
+/* ---- login sheet ---- */
+
+.form {
+  position: relative;
+  max-width: 380px;
+  margin: 14vh auto;
+  display: grid;
+  gap: 16px;
+  padding: 28px;
+  background: var(--sheet);
+  border: 2px solid var(--rule-strong);
+}
+
+.form::after {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border: 1px dotted var(--rule);
+  pointer-events: none;
+}
+
+.form > * { position: relative; }
+
+.form-title {
+  font-size: 21px;
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--rule-strong);
+}
+
+.form .chip { justify-self: start; }
+
+/* ---- narrow sheets ---- */
+
+@media (max-width: 860px) {
+  .shell, .split { flex-direction: column; }
+
+  .side, .pane {
+    width: auto;
+    flex: none;
+    border-right: 0;
+    border-bottom: 1px solid var(--rule-strong);
+  }
+
+  .side {
+    position: static;
+    height: auto;
+    overflow: visible;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 18px;
+    padding: 14px;
+  }
+  .brand { border-bottom: 0; margin: 0; padding: 0; }
+  .nav-group, .nav-foot { display: flex; align-items: center; gap: 10px; margin: 0; border: 0; padding: 0; }
+  .side .nav-label { border-bottom: 0; padding: 0; margin: 0; }
+  .side a::after { display: none; }
+  .side a[aria-current="page"]::before { margin-left: 0; }
+  .pane { max-height: 40vh; }
+
+  .bar { flex-direction: column; margin: 14px 16px 0; }
+  .actions { border-left: 0; border-top: 2px solid var(--rule-strong); }
+  .filters input { flex: 1 1 120px; min-width: 0; }
+
+  .pad, .rows, .record, .stats { padding-left: 16px; padding-right: 16px; }
+  .note { padding-left: 16px; padding-right: 16px; }
+  .tabs { margin-left: 16px; margin-right: 16px; overflow-x: auto; }
+
+  .row { display: grid; gap: 2px; }
+  .row .label { width: auto; }
+  .row::before { display: none; }
+  .row .mono { text-align: left; }
+}
+
+/* ---- record dialog ---- */
+
+/* Opened from a clicked row: a sheet laid over the drawing, its own title block
+   at the head, the page behind it blurred back. */
+.modal {
+  width: min(700px, calc(100vw - 32px));
+  max-height: min(84vh, 900px);
+  padding: 0;
+  overflow: auto;
+  color: var(--fg);
+  background: var(--sheet);
+  border: 2px solid var(--rule-strong);
+  border-radius: 0;
+}
+
+.modal::backdrop {
+  background: rgb(10 18 24 / 55%);
+  backdrop-filter: blur(5px);
+}
+
+.modal-head {
+  display: flex;
+  gap: 0;
+  align-items: stretch;
+  border-bottom: 2px solid var(--rule-strong);
+  position: sticky;
+  top: 0;
+  background: var(--sheet);
+}
+
+.modal-head .head { padding: 10px 16px; flex: 1; }
+.modal-head .actions { border-left: 2px solid var(--rule-strong); }
+.modal-head .title { font-size: 16px; }
+.modal .rows { padding: 16px 20px 22px; max-width: none; }
+
+@media (max-width: 860px) {
+  .modal { width: calc(100vw - 20px); }
+  .modal-head { flex-direction: column; }
+  .modal-head .actions { border-left: 0; border-top: 2px solid var(--rule-strong); }
+  .modal .rows { padding-left: 16px; padding-right: 16px; }
+}
+
+/* ---- forms ---- */
+
+/* Ruled fields on a sheet: the same underline treatment as the filter row. */
+.fields { display: grid; gap: 16px; padding: 18px 20px 22px; }
+.fields--page { max-width: 620px; padding: 22px 26px 28px; }
+
+.field { display: grid; gap: 4px; }
+.field .label { color: var(--muted); }
+.field .req { color: var(--danger); }
+
+.field input, .field select, .field textarea { width: 100%; font: inherit; font-size: 12px; }
+.field input[type="checkbox"] { width: auto; }
+
+.field textarea {
+  resize: vertical;
+  padding: 5px 2px;
+  color: var(--fg);
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--rule-strong);
+}
+
+.field--invalid input,
+.field--invalid select,
+.field--invalid textarea { border-bottom: 2px solid var(--danger); }
+
+.field-error { font-size: 11px; letter-spacing: .04em; color: var(--danger); }
+
+.form-error {
+  margin: 0 20px;
+  padding: 8px 12px;
+  font-size: 11px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--danger);
+  border: 1px solid var(--danger);
+}
+
+/* ---- notifications ---- */
+
+/* Fixed to the corner, and out of the way of pointer events once faded. The
+   fade is CSS rather than script, so nothing has to schedule a removal. */
+
+#toast {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 20;
+  display: grid;
+  gap: 8px;
+}
+
+/* A stamped annotation rather than a floating card. */
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px;
+  font-size: 12px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  background: var(--sheet);
+  color: var(--fg);
+  border: 2px solid var(--rule-strong);
+  animation: toast-in 160ms ease-out, toast-out 400ms ease-in 5s forwards;
+}
+
+.toast::before { content: "✓"; color: var(--accent); }
+.toast--danger::before { content: "!"; color: var(--danger); }
+
+.toast-close {
+  font: inherit;
+  padding: 0 2px;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.toast-close:hover { color: var(--fg); }
+
+@keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }
+@keyframes toast-out { to { opacity: 0; visibility: hidden; } }
+
+/* ---- destructive confirmation ---- */
+
+/* A <details> rather than confirm(): styleable, and it still works with no
+   scripting at all. The summary is the button; only the inner one posts. */
+.confirm { position: relative; }
+.confirm summary { list-style: none; cursor: pointer; }
+.confirm summary::-webkit-details-marker { display: none; }
+
+.confirm-body {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 10;
+  width: 264px;
+  padding: 14px;
+  background: var(--sheet);
+  border: 2px solid var(--danger);
+}
+
+.confirm-text { margin: 0 0 12px; font-size: 12px; }
+.confirm-body .btn { width: 100%; }
+
+/* ---- sortable headers ---- */
+
+.tbl th a.sort {
+  display: inline-flex;
+  gap: 6px;
+  align-items: baseline;
+  color: inherit;
+  text-decoration: none;
+}
+
+.tbl th a.sort:hover { color: var(--fg); }
+.tbl th a.sort--on { color: var(--hue, var(--accent)); }
+.sort-mark { font-size: 11px; }
+
+/* ---- row actions ---- */
+
+.row-actions { white-space: nowrap; text-align: right; }
+.row-actions form { display: inline-block; }
+
+.btn--small { font-size: 10px; padding: 4px 9px; letter-spacing: .1em; }
+.confirm--inline { display: inline-block; }
+
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ---- charts ---- */
+
+.charts {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  padding: 4px 26px 24px;
+}
+
+.chart {
+  margin: 0;
+  padding: 14px 16px;
+  background: var(--sheet);
+  border: 1px solid var(--rule);
+}
+
+.chart-title {
+  font-size: 10px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 12px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.chart-bars { display: grid; gap: 8px; }
+
+.chart-row {
+  display: grid;
+  grid-template-columns: minmax(80px, 22%) 1fr auto;
+  gap: 12px;
+  align-items: center;
+  font-size: 12px;
+}
+
+.chart-track { background: var(--field); height: 9px; border: 1px solid var(--rule); }
+
+.chart-bar {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+  background: var(--hue, var(--accent));
+}
+
+.chart-value { color: var(--muted); }
+.chart-empty { margin: 0; font-size: 12px; color: var(--muted); }
+
+.spark { display: block; width: 100%; height: 54px; overflow: visible; }
+
+.spark polyline {
+  fill: none;
+  stroke: var(--hue, var(--accent));
+  stroke-width: 2;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.chart-ends {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 8px;
+  font-size: 10px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.chart-end { color: var(--fg); }
+
+/* ---- filters ---- */
+
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 24px;
+  padding: 12px 26px 0;
+}
+
+.filter-set { display: flex; align-items: center; gap: 10px; }
+
+.filter-name {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* One object, not a row of buttons: the segments share edges, and only the
+   outer corners are rounded. */
+.segmented {
+  display: flex;
+  align-items: stretch;
+  overflow: hidden;
+  border: 1px solid var(--rule-strong);
+  border-radius: 0;
+}
+
+.segment {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--muted);
+  text-decoration: none;
+  white-space: nowrap;
+  /* The divider belongs to the segment, so it cannot double up at the ends. */
+  border-left: 1px solid var(--rule-strong);
+}
+
+.segment:first-child { border-left: 0; }
+.segment:hover { color: var(--fg); background: var(--field); }
+
+.segment--on {
+  color: var(--paper);
+  background: var(--hue, var(--accent));
+  font-weight: 600;
+}
+
+.segment--empty { color: var(--muted); opacity: .45; cursor: default; }
+
+/* Recessive: the value is the label, the count is an aside. */
+.segment-count {
+  font-family: var(--mono);
+  font-size: 11px;
+  opacity: .65;
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+}
+
+/* ---- bulk selection ---- */
+
+.bulk {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 26px 0;
+  padding: 9px 14px;
+  background: var(--sheet);
+  border: 2px solid var(--hue, var(--accent));
+}
+
+.bulk[hidden] { display: none; }
+
+.bulk-count {
+  font-size: 11px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--fg);
+  margin-right: 4px;
+}
+
+.row-select { width: 1%; white-space: nowrap; }
+
+/* ---- date range ---- */
+
+.range { position: relative; }
+
+.range summary {
+  list-style: none;
+  cursor: pointer;
+  border: 1px solid var(--rule-strong);
+  margin-left: -1px;
+}
+
+.range summary::-webkit-details-marker { display: none; }
+.range[open] summary { color: var(--fg); border-color: var(--hue, var(--accent)); }
+
+.range-body {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 8px);
+  z-index: 10;
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 14px;
+  background: var(--sheet);
+  border: 2px solid var(--rule-strong);
+}
+
+.range-field { display: grid; gap: 4px; }
+
+.range-label {
+  font-size: 10px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.range-field input[type="date"] { font: inherit; font-size: 11px; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+  /* With the fade suppressed the toast would never leave, so it stays
+     visible and dismissible rather than animating out. */
+  .toast { opacity: 1; visibility: visible; }
+}
