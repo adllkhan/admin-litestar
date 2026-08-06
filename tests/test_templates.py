@@ -4,6 +4,7 @@ from litestar.plugins.jinja import JinjaTemplateEngine
 
 from admin_litestar import DETAIL, LIST, ModelSpec, RowAction
 from admin_litestar.charts import bars, spark
+from admin_litestar.forms import Field
 from admin_litestar.render import render_value
 from admin_litestar.spec import Registry
 from admin_litestar.templates import TEMPLATES
@@ -281,3 +282,35 @@ def test_a_sparkline_with_one_point_explains_itself() -> None:
     )
     assert "Not enough history" in html
     assert "<polyline" not in html
+
+
+def test_a_json_field_renders_as_a_textarea_a_person_can_edit() -> None:
+    """A single-line input would make an indented document unreadable."""
+    html = _engine().get_template("_fields.html").render(
+        fields=[Field(name="payload", kind="json", required=False, value='{\n  "a": 1\n}')]
+    )
+    assert "<textarea" in html
+    assert 'name="payload"' in html
+    assert 'rows="10"' in html
+    # Escaped by Jinja, as any value bound into markup is.
+    assert "&#34;a&#34;: 1" in html
+
+
+def test_a_tristate_field_offers_the_null_alongside_true_and_false() -> None:
+    """The empty option is the state a checkbox cannot express."""
+    html = _engine().get_template("_fields.html").render(
+        fields=[Field(name="flagged", kind="tristate", required=False, value="")]
+    )
+    assert "<select" in html
+    assert '<option value="" selected>—</option>' in html
+    assert '<option value="true" >true</option>' in html
+    assert '<option value="false" >false</option>' in html
+
+
+def test_a_tristate_opens_on_the_stored_state() -> None:
+    """A stored false selects false rather than reopening on the null."""
+    html = _engine().get_template("_fields.html").render(
+        fields=[Field(name="flagged", kind="tristate", required=False, value="false")]
+    )
+    assert '<option value="false" selected>false</option>' in html
+    assert '<option value="" >—</option>' in html

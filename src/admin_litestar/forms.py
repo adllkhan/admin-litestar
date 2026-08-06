@@ -8,9 +8,12 @@ its column in ``detail_columns``, and the primary key is never one of them.
 from __future__ import annotations
 
 import datetime
+import json
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import TYPE_CHECKING, Any
+
+import sqlalchemy
 
 from .queries import primary_key
 
@@ -25,19 +28,26 @@ TEXTAREA = "textarea"
 NUMBER = "number"
 INTEGER = "integer"
 CHECKBOX = "checkbox"
+# A nullable boolean has three states, and a checkbox can only send two: once a
+# form is opened, NULL would become False with no way back.
+TRISTATE = "tristate"
 DATETIME = "datetime"
 DATE = "date"
 SELECT = "select"
 RELATION = "relation"
+JSON = "json"
 
 TEXTAREA_MIN_LENGTH = 240
+JSON_INDENT = 2
 TRUTHY = frozenset({"on", "true", "1", "yes"})
+FALSY = frozenset({"off", "false", "0", "no"})
 REQUIRED_MESSAGE = "required"
 NUMBER_MESSAGE = "must be a number"
 INTEGER_MESSAGE = "must be a whole number"
 DATETIME_MESSAGE = "must be a date and time, as 2026-08-03T14:30"
 DATE_MESSAGE = "must be a date, as 2026-08-03"
 CHOICE_MESSAGE = "not one of the permitted values"
+JSON_MESSAGE = "must be valid JSON"
 
 
 @dataclass(frozen=True, slots=True)
@@ -74,12 +84,17 @@ def _kind_of(column: Any) -> str:
     """Classify a column into one of the form kinds."""
     if getattr(column.type, "enums", None):
         return SELECT
+    # Before python_type, which is what a JSON column raises on. JSONB and the
+    # dialect variants subclass JSON, so an isinstance check covers them where a
+    # python_type check could not.
+    if isinstance(column.type, sqlalchemy.JSON):
+        return JSON
     try:
         python_type = column.type.python_type
     except NotImplementedError:
         return TEXT
     if python_type is bool:
-        return CHECKBOX
+        return TRISTATE if column.nullable else CHECKBOX
     if python_type is int:
         return INTEGER
     if python_type in (float, Decimal):
@@ -98,8 +113,12 @@ def _format(value: Any, kind: str) -> str:
     """Render a stored value into what the control expects to receive back."""
     if value is None:
         return ""
-    if kind == CHECKBOX:
+    if kind in (CHECKBOX, TRISTATE):
         return "true" if value else "false"
+    if kind == JSON:
+        # str() would render a dict as a Python repr, which does not parse back
+        # in; indented JSON is both valid and editable by hand.
+        return json.dumps(value, ensure_ascii=False, indent=JSON_INDENT)
     if kind == DATETIME and isinstance(value, datetime.datetime):
         # The datetime-local control neither sends nor accepts an offset.
         return value.replace(tzinfo=None, microsecond=0).isoformat()
@@ -173,6 +192,18 @@ def _coerce(column: Any, kind: str, raw: str) -> Any:
         if not column.nullable:
             raise ValueError(REQUIRED_MESSAGE)
         return None
+    if kind == TRISTATE:
+        lowered = text.lower()
+        if lowered in TRUTHY:
+            return True
+        if lowered in FALSY:
+            return False
+        raise ValueError(CHOICE_MESSAGE)
+    if kind == JSON:
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError as exc:
+            raise ValueError(JSON_MESSAGE) from exc
     if kind == INTEGER:
         try:
             return int(text)

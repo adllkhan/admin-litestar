@@ -5,12 +5,20 @@
   <label class="label" for="f-{{ field.name }}">
     {{ field.name }}{% if field.required %} <span class="req" aria-hidden="true">*</span>{% endif %}
   </label>
-  {% if field.kind == "textarea" %}
-  <textarea id="f-{{ field.name }}" name="{{ field.name }}" rows="3" {{ flagged }}
+  {% if field.kind in ("textarea", "json") %}
+  {# JSON arrives pretty-printed, so it needs the room to stay readable. #}
+  <textarea id="f-{{ field.name }}" name="{{ field.name }}" rows="{{ 10 if field.kind == 'json' else 3 }}" {{ flagged }}
             {% if field.required %}required{% endif %}>{{ field.value }}</textarea>
   {% elif field.kind == "checkbox" %}
   <input id="f-{{ field.name }}" name="{{ field.name }}" type="checkbox" value="true"
          {% if field.checked %}checked{% endif %} {{ flagged }}>
+  {% elif field.kind == "tristate" %}
+  {# A nullable boolean: the empty option is the null a checkbox cannot send. #}
+  <select id="f-{{ field.name }}" name="{{ field.name }}" {{ flagged }}>
+    <option value="" {% if field.value == "" %}selected{% endif %}>—</option>
+    <option value="true" {% if field.value == "true" %}selected{% endif %}>true</option>
+    <option value="false" {% if field.value == "false" %}selected{% endif %}>false</option>
+  </select>
   {% elif field.kind == "relation" %}
   {# A list of records rather than a key to memorise. #}
   <select id="f-{{ field.name }}" name="{{ field.name }}" {{ flagged }}

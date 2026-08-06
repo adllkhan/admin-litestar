@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING, Any
 
 from .constants import (
@@ -25,7 +26,12 @@ def render_value(value: object) -> str:
         return TRUE_CELL if value else FALSE_CELL
     if isinstance(value, (bytes, bytearray, memoryview)):
         return BYTES_CELL.format(size=len(bytes(value)))
-    text = str(value)
+    if isinstance(value, (dict, list)):
+        # A JSON column arrives decoded; str() would put a Python repr on the
+        # page, single quotes and all, which is not what was stored.
+        text = json.dumps(value, ensure_ascii=False)
+    else:
+        text = str(value)
     if len(text) > CELL_MAX_LENGTH:
         return f"{text[:CELL_MAX_LENGTH]}…"
     return text

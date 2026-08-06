@@ -3,6 +3,30 @@
 Notable changes to `admin-litestar`. Versions follow semantic versioning, with the caveat
 that `0.x` carries no stability promise — see the note at the end of 0.1.0.
 
+## 0.4.1 — 2026-08-06
+
+### Fixed — a JSON column is stored as structure, not as a string
+
+`sqlalchemy.JSON` raises `NotImplementedError` from `python_type`, so a JSON column fell
+through to the text kind and the submitted string was written into it verbatim: saving an
+edit form turned `["a", "b"]` into the literal `'["a", "b"]'`. JSON is now its own kind,
+detected by `isinstance` so `JSONB` and the dialect variants come with it. It edits as a
+textarea holding indented JSON, parses with `json.loads`, and reports `must be valid JSON`
+per field rather than storing something unreadable. An empty submission follows the column:
+`NULL` where it is nullable, `required` where it is not. A decoded value also renders as
+JSON in list and detail cells instead of as a Python repr with single quotes.
+
+### Fixed — a nullable boolean can express null again
+
+Every boolean was a checkbox, and an unchecked box means false — right for a column that
+refuses `NULL`, and the reason an unchecked box works at all, but it made `NULL`
+unreachable on a nullable one: opening the form once turned a null into false with no way
+back. A nullable boolean is now a three-state select — `—`, `true`, `false` — where the
+empty option is the null. A non-nullable boolean is still a checkbox, unchanged.
+
+Both fixes are backward compatible: no model that works today changes behaviour, since
+JSON columns could not round-trip and nullable booleans could not hold a null.
+
 ## 0.4.0 — 2026-08-04
 
 ### Added — bulk actions

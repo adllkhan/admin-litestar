@@ -1,14 +1,32 @@
 """Field derivation and the coercion of submitted strings into column values."""
 
 import datetime
+import json
 from decimal import Decimal
 
 import pytest
-from sqlalchemy import Boolean, Date, DateTime, Integer, Numeric, String, Text
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Date,
+    DateTime,
+    Integer,
+    Numeric,
+    String,
+    Text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from admin_litestar import CREATE, DETAIL, EDIT, LIST, ModelSpec
-from admin_litestar.forms import editable_columns, fields_for, parse
+from admin_litestar.forms import (
+    CHOICE_MESSAGE,
+    JSON_MESSAGE,
+    REQUIRED_MESSAGE,
+    _format,
+    editable_columns,
+    fields_for,
+    parse,
+)
 
 from .models import Base
 
@@ -26,6 +44,8 @@ class Thing(Base):
     active: Mapped[bool] = mapped_column(Boolean)
     starts_on: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
     seen_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True))
+    payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    flagged: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
 
 
 THING = ModelSpec(
@@ -36,7 +56,29 @@ THING = ModelSpec(
     list_columns=("id", "name"),
     detail_columns=(
         "id", "name", "blurb", "count", "price", "active", "starts_on", "seen_at",
+        "payload", "flagged",
     ),
+    capabilities=frozenset({LIST, DETAIL, EDIT, CREATE}),
+    order_by="id",
+)
+
+
+class Strict(Base):
+    """A model whose JSON column refuses NULL."""
+
+    __tablename__ = "form_strict"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    payload: Mapped[dict] = mapped_column(JSON)
+
+
+STRICT = ModelSpec(
+    model=Strict,
+    slug="strict",
+    label="Stricts",
+    group="Things",
+    list_columns=("id",),
+    detail_columns=("id", "payload"),
     capabilities=frozenset({LIST, DETAIL, EDIT, CREATE}),
     order_by="id",
 )
@@ -47,6 +89,7 @@ def test_the_primary_key_is_never_editable() -> None:
     assert "id" not in editable_columns(THING)
     assert editable_columns(THING) == (
         "name", "blurb", "count", "price", "active", "starts_on", "seen_at",
+        "payload", "flagged",
     )
 
 
@@ -61,6 +104,8 @@ def test_fields_classify_columns_by_the_control_they_need() -> None:
         "active": "checkbox",
         "starts_on": "date",
         "seen_at": "datetime",
+        "payload": "json",
+        "flagged": "tristate",
     }
 
 
@@ -160,6 +205,91 @@ def test_bad_input_is_reported_per_field(field: str, raw: str, message: str) -> 
     values, errors = parse(THING, {field: raw})
     assert errors == {field: message}
     assert field not in values
+
+
+def test_a_json_column_is_not_classified_as_text() -> None:
+    """JSON.python_type raises, and falling back to text writes a string in."""
+    kinds = {field.name: field.kind for field in fields_for(THING)}
+    assert kinds["payload"] == "json"
+
+
+def test_a_json_submission_round_trips_as_structure_rather_than_a_string() -> None:
+    """A JSON column stores the decoded value, not the text that was typed."""
+    values, errors = parse(THING, {"payload": '["a", "b"]'})
+    assert errors == {}
+    assert isinstance(values["payload"], list)
+    assert values["payload"] == ["a", "b"]
+
+
+def test_malformed_json_is_rejected_rather_than_stored() -> None:
+    """Invalid JSON names the field and never reaches the column."""
+    values, errors = parse(THING, {"payload": "{not json"})
+    assert errors == {"payload": JSON_MESSAGE}
+    assert "payload" not in values
+
+
+def test_an_empty_json_submission_follows_the_column_nullability() -> None:
+    """Empty means NULL where the column allows it, and an error where it does not."""
+    values, errors = parse(THING, {"payload": ""})
+    assert errors == {}
+    assert values["payload"] is None
+
+    values, errors = parse(STRICT, {"payload": ""})
+    assert errors == {"payload": REQUIRED_MESSAGE}
+    assert "payload" not in values
+
+
+def test_a_stored_json_value_is_formatted_so_it_parses_back_in() -> None:
+    """str() on a dict yields single quotes, which would not survive a save."""
+    stored = {"scopes": ["read", "write"], "limit": 3}
+    text = _format(stored, "json")
+    assert json.loads(text) == stored
+
+
+def test_a_nullable_boolean_is_a_tristate_and_a_plain_one_stays_a_checkbox() -> None:
+    """Only a nullable boolean needs the third state; the rest are unchanged."""
+    kinds = {field.name: field.kind for field in fields_for(THING)}
+    assert kinds["flagged"] == "tristate"
+    assert kinds["active"] == "checkbox"
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [("", None), ("true", True), ("false", False)],
+)
+def test_each_tristate_submission_reaches_its_own_value(
+    raw: str, expected: bool | None
+) -> None:
+    """All three states are reachable, null included."""
+    values, errors = parse(THING, {"flagged": raw})
+    assert errors == {}
+    assert values["flagged"] is expected
+
+
+def test_a_tristate_rejects_a_value_that_is_neither_state() -> None:
+    """A select can only send the three options; anything else is a forgery."""
+    values, errors = parse(THING, {"flagged": "maybe"})
+    assert errors == {"flagged": CHOICE_MESSAGE}
+    assert "flagged" not in values
+
+
+def test_a_tristate_left_out_of_the_body_is_not_written() -> None:
+    """A select always submits, so a missing one is an absent field, not a false."""
+    values, errors = parse(THING, {"name": "widget"})
+    assert errors == {}
+    assert "flagged" not in values
+
+
+def test_a_stored_null_boolean_opens_the_form_on_the_empty_option() -> None:
+    """Formatting NULL as false would make the null unreachable on save."""
+    fields = {
+        field.name: field
+        for field in fields_for(THING, row={"flagged": None, "active": False})
+    }
+    # The empty option only exists on a select, so the kind is half the claim.
+    assert fields["flagged"].kind == "tristate"
+    assert fields["flagged"].value == ""
+    assert fields["active"].value == "false"
 
 
 def test_a_field_the_form_never_offered_cannot_be_written() -> None:

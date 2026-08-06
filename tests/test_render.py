@@ -68,6 +68,12 @@ def test_memoryview_does_not_render_as_a_python_repr() -> None:
     assert "memory at" not in render_value(memoryview(b"\x00\x01"))
 
 
+def test_json_values_do_not_render_as_a_python_repr() -> None:
+    """A JSON column arrives decoded; str() would put single quotes on the page."""
+    assert render_value({"a": 1}) == '{"a": 1}'
+    assert render_value(["read", "write"]) == '["read", "write"]'
+
+
 def test_htmx_detection() -> None:
     """The HX-Request header decides whether a fragment is wanted."""
     assert is_htmx(_Request({"HX-Request": "true"})) is True

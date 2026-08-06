@@ -304,7 +304,9 @@ a redirect after a successful write.
 
 **Coercion and validation.** A form sends strings; columns want values. Each column is
 classified from its type — integer, number, checkbox, date, datetime-local, select for an
-enum, textarea for unbounded text — and the submitted string is coerced back. A field the
+enum, textarea for unbounded text or for JSON, and a three-state select for a nullable
+boolean — and the submitted string is coerced back. A JSON column is edited as indented
+JSON and stored as structure, not as the text that was typed. A field the
 form never offered is ignored, so adding one to the request body writes nothing. Bad input
 comes back as the same form with a per-field message and the values you typed, not the values
 that were stored. A constraint the database enforces (a duplicate unique value, a missing
